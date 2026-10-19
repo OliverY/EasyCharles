@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  EasyCharles macOS 后台服务模板（launchd 用户级 agent）
+  ========================================================
+  ⚠ 不要手工改这个文件：双击包内的「安装后台服务.command」会读它，
+    把下面这些 __占位符__ 替换成真实路径后写到
+    ~/Library/LaunchAgents/local.easycharles.server.plist 并装载。
+
+  为什么 plist 里要写死 node 绝对路径（EC_NODE_BIN）：
+    launchd 给 job 的 PATH 只有 /usr/bin:/bin:/usr/sbin:/sbin，
+    Homebrew / nvm 装的 node 不在里面，run.sh 的 `command -v node` 会找不到。
+    所以安装脚本会把 node 解析成绝对路径填进 __NODE_BIN__。
+
+  KeepAlive=true：崩溃自动拉起；配合 ThrottleInterval=10 避免启动即崩时热循环。
+  要停止/卸载请双击「卸载后台服务.command」，直接 kill 进程会被 launchd 拉起来。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>local.easycharles.server</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__INSTALL_DIR__/run.sh</string>
+    <string>--lan</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__INSTALL_DIR__</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>EC_PORT</key>
+    <string>__PORT__</string>
+    <key>EC_DATA_DIR</key>
+    <string>__DATA_DIR__</string>
+    <key>EC_PASSWORD</key>
+    <string>__PASSWORD__</string>
+    <key>EC_ADMIN</key>
+    <string>__ADMIN__</string>
+    <key>EC_NODE_BIN</key>
+    <string>__NODE_BIN__</string>
+    <key>EC_ARGS</key>
+    <string>__EXTRA_ARGS__</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/server.log</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/server.err.log</string>
+</dict>
+</plist>

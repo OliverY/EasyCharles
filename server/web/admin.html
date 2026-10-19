@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EasyCharles 管理控制台</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #e4e7ec;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --accent: #2b6cb0;
+    --accent-soft: #e8f1fb;
+    --err: #a32d2d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+    display: flex; flex-direction: column;
+  }
+  button {
+    font: inherit; padding: 5px 12px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); border-radius: 6px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { opacity: .9; color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input[type=text], input[type=password] {
+    width: 100%; font: inherit; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--panel); color: var(--text);
+  }
+  input[type=text]:focus, input[type=password]:focus { outline: none; border-color: var(--accent); }
+  .msg { font-size: 12px; color: var(--accent); }
+  /* ── 顶栏 ── */
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .ver { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .who { font-size: 12px; color: var(--muted); margin-left: auto; }
+  /* ── 管理面板 ── */
+  #admin-main { flex: 1; overflow: auto; padding: 16px 20px; }
+  #admin-body { max-width: 860px; margin: 0 auto; font-size: 12px; }
+  .dp-empty { color: var(--muted); padding: 40px; text-align: center; }
+  .acards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .acard { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .acard .k { color: var(--muted); font-size: 11px; }
+  .acard .v { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .asec { color: var(--muted); font-size: 11px; margin: 14px 0 6px; }
+  table.adm { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.adm th { text-align: left; color: var(--muted); font-weight: 400; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  table.adm td { padding: 4px 6px; border-bottom: 1px solid #f1f2f4; font-variant-numeric: tabular-nums; }
+  table.adm td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  /* ── 登录 / 拒绝 ── */
+  #login-view, #denied-view {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+  }
+  .login-card {
+    width: 340px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px 24px; box-shadow: 0 8px 30px rgba(0,0,0,.05);
+  }
+  .login-card h1 { font-size: 17px; margin: 0 0 4px; }
+  .login-card .desc { color: var(--muted); font-size: 12px; margin: 0 0 18px; }
+  .login-card label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  .err { color: var(--err); font-size: 12px; min-height: 18px; margin-top: 8px; }
+  .pw-hint { color: var(--muted); font-size: 11px; margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<header class="topbar" id="app-top" style="display:none">
+  <span class="brand">EasyCharles 管理控制台 <span class="ver" id="admin-sub"></span></span>
+  <span class="who" id="who"></span>
+  <a href="/crypto" style="text-decoration:none"><button>加解密</button></a>
+  <button id="btn-refresh">刷新</button>
+  <button id="btn-logout">退出</button>
+</header>
+
+<div id="login-view">
+  <div class="login-card">
+    <h1>EasyCharles 管理控制台</h1>
+    <p class="desc">仅限管理员账号（服务端启动参数 --admin 配置）。普通用户请走 <a href="/" rel="noopener">用户控制台</a></p>
+    <label for="in-phone">手机号</label>
+    <input type="text" id="in-phone" placeholder="例如 13800138000" autocomplete="off">
+    <label for="in-pw">登录口令</label>
+    <input type="password" id="in-pw" placeholder="登录口令">
+    <div class="err" id="login-err"></div>
+    <button class="primary" id="btn-login">登录</button>
+  </div>
+</div>
+
+<div id="denied-view" style="display:none">
+  <div class="login-card">
+    <h1>无管理员权限</h1>
+    <p class="desc" id="denied-who"></p>
+    <p class="desc">管理员由服务端启动参数 --admin 决定（ADR-018），不在运行时授予。</p>
+    <button id="btn-denied-logout">换个账号登录</button>
+  </div>
+</div>
+
+<main id="admin-main" style="display:none">
+  <div id="admin-body"><div class="dp-empty">加载中…</div></div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { session: null, user: null };
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function apiFetch(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {},
+    state.session ? { 'X-EC-Session': state.session } : {});
+  return fetch(path, opts).then((res) => {
+    if (res.status === 401 && state.session) {
+      state.session = null; state.user = null;
+      localStorage.removeItem('ec_session');
+      showLogin();
+    }
+    return res;
+  });
+}
+
+function showLogin() {
+  $('login-view').style.display = 'flex';
+  $('denied-view').style.display = 'none';
+  $('admin-main').style.display = 'none';
+  $('app-top').style.display = 'none';
+}
+
+function showDenied() {
+  $('login-view').style.display = 'none';
+  $('denied-view').style.display = 'flex';
+  $('admin-main').style.display = 'none';
+  $('app-top').style.display = 'none';
+  $('denied-who').textContent = '当前账号：' + (state.user ? state.user.phone : '?');
+}
+
+function showApp() {
+  $('login-view').style.display = 'none';
+  $('denied-view').style.display = 'none';
+  $('admin-main').style.display = 'block';
+  $('app-top').style.display = 'flex';
+  $('who').textContent = '管理员：' + (state.user ? state.user.phone : '');
+}
+
+async function doLogin() {
+  const phone = $('in-phone').value.trim();
+  const password = $('in-pw').value;
+  $('login-err').textContent = '';
+  if (!phone) { $('login-err').textContent = '请输入手机号'; return; }
+  const res = await fetch('/__ec/api/login', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ phone, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { $('login-err').textContent = data.message || '登录失败（HTTP ' + res.status + '）'; return; }
+  state.session = data.session;
+  state.user = data.user;
+  localStorage.setItem('ec_session', data.session);
+  boot();
+}
+
+function logout() {
+  state.session = null; state.user = null;
+  localStorage.removeItem('ec_session');
+  showLogin();
+}
+
+async function boot() {
+  if (!state.session) { showLogin(); return; }
+  const me = await apiFetch('/__ec/api/me');
+  if (!me.ok) { showLogin(); return; }
+  state.user = (await me.json()).user;
+  // role 由服务端下发（ADR-018）；非 admin 在这里就拦下，不给看空面板
+  if (!state.user || state.user.role !== 'admin') { showDenied(); return; }
+  showApp();
+  loadAdmin();
+}
+
+// ── 管理面板（仅 admin，ADR-018）──
+// 只读：全局统计 + 用户空间列表。服务端 /__ec/api/admin/overview 校验角色，
+// 非 admin 拿到 403 —— 页面本身人人可拉，权限强制点始终在服务端。
+function fmtDur(ms) {
+  const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  return (d ? d + ' 天 ' : '') + (h ? h + ' 小时 ' : '') + m + ' 分';
+}
+
+function fmtTime(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  try { return new Date(n).toLocaleString(); } catch (e) { return '—'; }
+}
+
+function fmtBytes(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v < 0) return '—';
+  if (v >= 1048576) return (v / 1048576).toFixed(1) + ' MB';
+  if (v >= 1024) return Math.round(v / 1024) + ' KB';
+  return v + ' B';
+}
+
+function fmtMs(ms) {
+  const v = Number(ms);
+  if (!Number.isFinite(v) || v < 0) return '—';
+  return v >= 1000 ? (v / 1000) + ' 秒' : v + ' ms';
+}
+
+async function loadAdmin() {
+  const body = $('admin-body');
+  body.innerHTML = '<div class="dp-empty">加载中…</div>';
+  const res = await apiFetch('/__ec/api/admin/overview');
+  if (!res.ok) {
+    body.innerHTML = '<div class="dp-empty">' +
+      (res.status === 403 ? '当前账号不是管理员（服务端拒绝，HTTP 403）' : '加载失败（HTTP ' + res.status + '）') +
+      '</div>';
+    if (res.status === 403) showDenied();
+    return;
+  }
+  const d = await res.json().catch(() => null);
+  if (!d || typeof d !== 'object') { body.innerHTML = '<div class="dp-empty">响应不是合法 JSON</div>'; return; }
+  renderAdmin(d);
+}
+
+function renderAdmin(d) {
+  const st = d.stats || {}, sn = d.snapshots || {}, sv = d.server || {}, rl = d.rules || {}, cf = d.config || {};
+  const pj = d.projects || {}, sto = pj.storage || {};
+  const spaces = Array.isArray(d.spaces) ? d.spaces : [];
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const card = (k, v) => '<div class="acard"><div class="k">' + esc(k) + '</div>' +
+    '<div class="v">' + esc(String(v)) + '</div></div>';
+  const kvRow = (k, v) => '<tr><td class="mono">' + esc(k) + '</td><td>' + esc(String(v)) + '</td></tr>';
+  const spRow = (s) => '<tr><td class="mono">' + esc(s.phone) + '</td>' +
+    '<td>' + esc(String(s.devices)) + ' 台（' + esc(String(s.online)) + ' 在线）</td>' +
+    '<td>' + esc(String(s.records)) + '</td><td>' + esc(fmtTime(s.lastLoginAt)) + '</td></tr>';
+
+  const ttl = Number(cf.snapshotTtlMs);
+  const routes = arr(cf.compatRoutes);
+  const admins = arr(cf.adminPhones);
+
+  $('admin-sub').textContent = 'v' + (sv.version || '?') + ' · 协议 v' + (sv.protocol || '?');
+  $('admin-body').innerHTML =
+    '<div class="acards">' +
+      card('记录（全局）', st.records != null ? st.records : 0) +
+      card('设备（全局）', st.devices != null ? st.devices : 0) +
+      card('在线设备', st.online != null ? st.online : 0) +
+      card('快照', sn.count != null ? sn.count : 0) +
+      card('Mock 规则', rl.count != null ? rl.count : 0) +
+      card('私有项目', pj.private != null ? pj.private : 0) +
+      card('共享项目', pj.shared != null ? pj.shared : 0) +
+      card('用户空间', spaces.length) +
+    '</div>' +
+    '<div class="asec">运行状态</div>' +
+    '<table class="adm"><tbody>' +
+      kvRow('运行时长', fmtDur(sv.uptimeMs)) +
+      kvRow('监听地址', (cf.host || '') + ':' + (cf.port || '') + (cf.lanMode ? '（LAN）' : '（仅回环）')) +
+      kvRow('内网地址', arr(cf.lanAddresses).join(', ') || '—') +
+    '</tbody></table>' +
+    // 项目盘账（C14）：历史默认**无限保留**，所以「占了多大」必须是看得见的一个数，
+    // 而不是等磁盘写满才发现（架构 §6.3）。ownerless 不是 0 就说明迁移留了洞。
+    '<div class="asec">私有 / 共享项目与历史（C14）</div>' +
+    '<table class="adm"><tbody>' +
+      kvRow('私有项目', pj.private != null ? pj.private : 0) +
+      kvRow('共享项目', pj.shared != null ? pj.shared : 0) +
+      kvRow('无归属私有项目', (pj.ownerless != null ? pj.ownerless : 0) +
+        (Number(pj.ownerless) > 0 ? '  ← 异常：这些规则永不命中，要查迁移是否完整' : '（应为 0）')) +
+      kvRow('历史快照占用', fmtBytes(sto.bytes) + ' · ' + (sto.files != null ? sto.files : 0) + ' 个文件' +
+        ' · ' + (sto.projects != null ? sto.projects : 0) + ' 个共享项目') +
+      kvRow('历史保留策略', '全部保留、不自动清理（要压缩需另行拍板，见 roadmap P7 待产品确认）') +
+    '</tbody></table>' +
+    '<div class="asec">统一配置（启动参数，进程内只读）</div>' +
+    '<table class="adm"><tbody>' +
+      kvRow('记录模式', cf.recordMode || '—') +
+      kvRow('记录上限', cf.maxRecords != null ? cf.maxRecords + ' 条' : '—') +
+      kvRow('缓冲上限', fmtBytes(cf.maxBufferBytes)) +
+      kvRow('采样字节', fmtBytes(cf.sampleBytes)) +
+      kvRow('上游超时', fmtMs(cf.upstreamTimeoutMs)) +
+      kvRow('心跳间隔', fmtMs(cf.heartbeatMs)) +
+      kvRow('快照有效期', Number.isFinite(ttl) && ttl > 0 ? Math.round(ttl / 3600000) + ' 小时' : '永不过期') +
+      kvRow('快照上限', cf.snapshotMax != null ? cf.snapshotMax + ' 条' : '—') +
+      kvRow('兼容层路由', routes.length ? routes.join(', ') + '（appId ' + (cf.compatAppId || '—') + '）' : '未启用') +
+      kvRow('管理员', admins.length ? admins.join(', ') : '未配置（没有管理员）') +
+      kvRow('数据目录', cf.dataDir || '—') +
+    '</tbody></table>' +
+    '<div class="asec">用户空间（' + spaces.length + '）</div>' +
+    (spaces.length
+      ? '<table class="adm"><thead><tr><th>手机号</th><th>设备</th><th>记录</th><th>最近登录</th></tr></thead>' +
+        '<tbody>' + spaces.map(spRow).join('') + '</tbody></table>'
+      : '<div class="dp-empty">还没有用户空间</div>');
+}
+
+$('btn-login').onclick = () => { void doLogin(); };
+$('in-pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') void doLogin(); });
+$('btn-refresh').onclick = () => { void loadAdmin(); };
+$('btn-logout').onclick = logout;
+$('btn-denied-logout').onclick = logout;
+
+// 登录页刷新时恢复会话（与用户控制台共用同一会话 cookie/localStorage 键）
+state.session = localStorage.getItem('ec_session');
+void boot();
+</script>
+</body>
+</html>

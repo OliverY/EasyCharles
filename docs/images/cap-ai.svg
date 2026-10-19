@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 270" width="1000" height="270" role="img"
+     aria-label="用一句话让 Codex 造翻页数据：agent 拆成 mock api create --param page=N，写完读回核对">
+  <title>接进 AI 工作流（mock CLI）</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .node   { font-size: 13.5px; font-weight: 700; fill: #1f2937; }
+    .nodesub{ font-size: 10.5px; fill: #6b7280; }
+    .code   { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10px; fill: #374151; }
+    .arlab  { font-size: 10.5px; fill: #6b7280; text-anchor: middle; }
+    .good   { font-size: 11px; fill: #2b6cb0; }
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="270" fill="#ffffff"/>
+
+  <!-- 一句话 -->
+  <rect x="24" y="40" width="220" height="152" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="44" y="68">Codex · 你说一句</text>
+  <text class="nodesub" x="44" y="94">「帮我给 /api/order/list</text>
+  <text class="nodesub" x="44" y="114">造一组翻页数据」</text>
+  <text class="nodesub" x="44" y="138">三页，最后一页没有更多</text>
+  <text class="good" x="44" y="170">✓ 不用记参数</text>
+
+  <!-- 跑命令 -->
+  <line x1="250" y1="116" x2="300" y2="116" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="arlab" x="275" y="104">跑命令</text>
+
+  <!-- CLI 终端 -->
+  <rect x="306" y="40" width="334" height="152" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <circle cx="326" cy="58" r="3.5" fill="#f3d3cf"/>
+  <circle cx="338" cy="58" r="3.5" fill="#e9e3c8"/>
+  <circle cx="350" cy="58" r="3.5" fill="#cfe0f3"/>
+  <text class="nodesub" x="366" y="62">mock CLI</text>
+  <text class="code" x="326" y="92">$ mock api create --path /api/order/list \</text>
+  <text class="code" x="326" y="114">    --param page=1 --json-list '{…20 条…}'</text>
+  <text class="code" x="326" y="136">$ mock api create --param page=2 …</text>
+  <text class="code" x="326" y="164" fill="#2b6cb0">✓ verified · exit 0</text>
+
+  <!-- 写规则 -->
+  <line x1="646" y1="116" x2="700" y2="116" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="arlab" x="673" y="104">写规则</text>
+
+  <!-- 项目 -->
+  <rect x="706" y="40" width="270" height="152" rx="14" fill="#f7fafe" stroke="#2b6cb0"/>
+  <text class="node" x="726" y="68" fill="#2b6cb0">EasyCharles 项目</text>
+  <text class="nodesub" x="726" y="90">订单模块 · 私有</text>
+  <rect x="726" y="96" width="230" height="20" rx="6" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="code" x="738" y="110" fill="#2b6cb0">/api/order/list · page=1</text>
+  <rect x="726" y="120" width="230" height="20" rx="6" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="code" x="738" y="134" fill="#2b6cb0">/api/order/list · page=2</text>
+  <rect x="726" y="144" width="230" height="20" rx="6" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="code" x="738" y="158" fill="#2b6cb0">/api/order/list · page=3</text>
+  <text class="good" x="726" y="182">✓ 已生效，手机上直接翻</text>
+
+  <!-- 读回核对 -->
+  <path d="M841,196 L841,224 L134,224 L134,196" fill="none" stroke="#2b6cb0" stroke-width="1.6"
+        stroke-dasharray="5 4" marker-end="url(#arG)"/>
+  <text class="nodesub" x="500" y="248" text-anchor="middle">读回核对：字段逐项比对 + 退出码，不信服务端一句 ok:true</text>
+</svg>

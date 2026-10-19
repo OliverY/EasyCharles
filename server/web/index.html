@@ -1,0 +1,4465 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EasyCharles 控制台</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #e4e7ec;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --accent: #2b6cb0;
+    --accent-soft: #e8f1fb;
+    --ok: #3b6d11;
+    --warn: #854f0b;
+    --err: #a32d2d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+    display: flex; flex-direction: column;
+  }
+  /* 三栏网格：顶部中间永远居中（1fr auto 1fr） */
+  .topbar {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center; gap: 14px;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .tb-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
+  .brand { font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .ver { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .conn {
+    font-size: 12px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .stats { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  /* 设备下拉（顶部中间） */
+  .device-picker { position: relative; width: 300px; max-width: 100%; }
+  .dp-trigger {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    padding: 5px 10px; font-size: 12px; text-align: left;
+  }
+  .dp-trigger .dp-label {
+    flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dp-trigger .caret { flex: none; color: var(--muted); font-size: 10px; }
+  .dp-trigger.open { border-color: var(--accent); color: var(--accent); }
+  .dp-trigger.open .caret { color: var(--accent); }
+  .dp-panel {
+    position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    width: 380px; max-width: 90vw; max-height: 60vh; overflow: auto; z-index: 60;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.12); padding: 6px;
+  }
+  .dp-panel.hidden { display: none; }
+  .dp-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+    border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  .dp-item:hover { background: var(--bg); }
+  .dp-item.active { background: var(--accent-soft); }
+  .dp-item.unavailable { cursor: not-allowed; opacity: .65; }
+  .dp-item .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dp-item .sub { color: var(--muted); flex: none; }
+  .dp-item button { padding: 3px 10px; font-size: 11px; }
+  .dp-sep { height: 1px; background: var(--border); margin: 5px 4px; }
+  .dp-empty { color: var(--muted); font-size: 12px; padding: 12px; text-align: center; }
+  /* 顶栏按钮不参与收缩，避免窄窗口下文字折行把顶栏撑高 */
+  .topbar button { flex: none; white-space: nowrap; }
+  @media (max-width: 960px) {
+    .conn { display: none; }
+    #who { display: none; }
+    .device-picker { width: 220px; }
+  }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+  .dot.on { background: var(--accent); }
+  .dot.off { background: #d1d5db; }
+  button {
+    font: inherit; padding: 5px 12px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); border-radius: 6px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { opacity: .9; color: #fff; }
+  button.danger { color: var(--err); border-color: var(--err); }
+  button.danger:hover { background: var(--err); border-color: var(--err); color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  main { flex: 1; display: flex; min-height: 0; }
+  .sidebar {
+    position: relative;
+    width: 420px; min-width: 320px; display: flex; flex-direction: column;
+    background: var(--panel); border-right: 1px solid var(--border);
+  }
+  /* 拖拽手柄：列表路径太长时把侧栏拉宽，宽度存 localStorage */
+  .sidebar-resizer {
+    position: absolute; top: 0; right: -4px; width: 8px; height: 100%;
+    cursor: col-resize; z-index: 30;
+  }
+  .sidebar-resizer::after {
+    content: ''; position: absolute; top: 0; left: 3px; width: 2px; height: 100%;
+    background: transparent; transition: background .12s;
+  }
+  .sidebar-resizer:hover::after, .sidebar-resizer.dragging::after { background: var(--accent); }
+  body.col-resizing { cursor: col-resize; user-select: none; }
+  .tag { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); flex: none; }
+  .tag.other { background: #f1efe8; color: #5f5e5a; }
+  /* 加解密（ADR-039）：绿色只用于「这条记录已经是明文」，与 mock/流式的灰蓝区分开 */
+  .tag.crypto { background: #e7f5ec; color: #2f6b3f; }
+  .crypto-note {
+    margin: 0 0 10px; padding: 7px 9px; border-radius: 6px;
+    background: #fdf6e7; border: 1px solid #f0e2c4; color: var(--warn); font-size: 12px;
+  }
+  .filters {
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .filters input[type=text] { flex: 1; min-width: 0; width: auto; }
+  .filters button { flex: none; padding: 5px 10px; }
+  /* ── Mock 模式顶部的项目横滑栏 ──
+     为什么是横滑而不是下拉：项目通常 3~8 个，横排一眼看全、点一下就切；
+     下拉要点两下，而且在 320px 的窄侧栏里，原生 select 的列表会被窗口边缘裁掉。
+     为什么放最上面：它是「我现在在哪个模块里」的总开关，比接口列表更上位。
+
+     每张卡两行：上行「项目名 + 条数」点了切视图，下行「整组开关」一键关/开整组。
+     开关必须和「切项目」分成两个热区——合成一个的话，想关整组就会顺手切走视图，
+     正在编辑的规则跟着换项目，是最烦的那种误操作。 */
+  .mproj {
+    flex: none; display: flex; align-items: stretch; gap: 8px;
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+    position: relative;                 /* 让选中卡的 offsetLeft 相对这条栏算 */
+    overflow-x: auto; overflow-y: hidden;
+    overscroll-behavior-x: contain;     /* 滑到头不把整页一起带跑 */
+    scrollbar-width: thin; scrollbar-color: #dcd7cb transparent;
+  }
+  .mproj::-webkit-scrollbar { height: 4px; }
+  .mproj::-webkit-scrollbar-thumb { background: #dcd7cb; border-radius: 2px; }
+  .mproj::-webkit-scrollbar-track { background: transparent; }
+  .mproj-chip {
+    flex: none; display: flex; flex-direction: column; justify-content: space-between; gap: 4px;
+    min-width: 112px; max-width: 154px; padding: 7px 9px 6px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--panel); color: var(--text);
+    font: inherit; font-size: 12px; line-height: 1.35;
+    cursor: pointer; user-select: none;   /* 横滑时别把项目名拖成蓝色选中态 */
+  }
+  .mproj-chip:hover { border-color: #c3cec9; }
+  /* 选中：浅绿底 + 双层描边（实心 accent 会把卡里的开关吞掉，也压得整条栏喘不过气） */
+  .mproj-chip.on {
+    background: var(--accent-soft); border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .mproj-pick {
+    display: flex; align-items: baseline; gap: 4px; min-width: 0; width: 100%;
+    padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit;
+    font: inherit; text-align: left; cursor: pointer;
+  }
+  /* 项目名可能很长：卡本身不能被撑爆，否则一屏只放得下一个 */
+  .mproj-pick .nm {
+    flex: 1; min-width: 0; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mproj-pick .n { flex: none; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mproj-chip.on .mproj-pick .nm { color: var(--accent); }
+  .mproj-chip.on .mproj-pick .n { color: var(--accent); opacity: .75; }
+  /* 整组开关 + 删除：第二行两个热区，开关占满剩余宽度。
+     关组不改写规则自身的 enabled（ADR-030），重开即恢复 */
+  .mproj-row2 { display: flex; align-items: center; gap: 2px; }
+  .mproj-sw {
+    display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0;
+    padding: 2px 0; border: 0; border-radius: 0; background: transparent; color: var(--muted);
+    font: inherit; font-size: 10px; line-height: 1.4; text-align: left; cursor: pointer;
+  }
+  .mproj-sw:hover { color: var(--text); }
+  .mproj-sw .trk {
+    flex: none; position: relative; width: 24px; height: 14px; border-radius: 999px;
+    background: #d5dae0; transition: background .14s;
+  }
+  .mproj-sw .trk::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.28);
+    transition: transform .14s;
+  }
+  .mproj-sw[aria-checked="true"] .trk { background: var(--accent); }
+  .mproj-sw[aria-checked="true"] .trk::after { transform: translateX(10px); }
+  .mproj-sw .swl { white-space: nowrap; }
+  /* 卡片上的删除：不做成常驻的红按钮，避免整条栏看起来全是危险操作；
+     hover 才变红，点开仍然是二次确认弹框 */
+  .mproj-del {
+    flex: none; width: 20px; height: 18px; padding: 0; margin-left: auto;
+    border: 0; border-radius: 4px; background: transparent; color: var(--muted);
+    font: inherit; font-size: 10px; line-height: 1; cursor: pointer;
+  }
+  .mproj-del:hover { color: var(--err); background: #fdecec; border-color: transparent; }
+  /* 项目停用：开关已经明确表达状态，卡片只做减法。虚线圈留给末尾的「+ 新建」，
+     否则「停用的项目」和「新建入口」长得一样，都是虚线圈 */
+  .mproj-chip.off { background: #faf9f6; }
+  .mproj-chip.off .mproj-pick .nm { color: var(--muted); font-weight: 500; }
+  .mproj-chip.off.on { background: #eff3f0; }
+  /* 「全部」不是项目、没有整组开关：第二行放项目个数，跟别的卡等高 */
+  .mproj-meta { color: var(--muted); font-size: 10px; line-height: 14px; white-space: nowrap; }
+  .mproj-add {
+    flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    min-width: 48px; padding: 6px 9px;
+    border: 1px dashed #c9cec9; border-radius: 10px;
+    background: transparent; color: var(--muted); font: inherit; font-size: 11px;
+    line-height: 1.3; cursor: pointer;
+  }
+  .mproj-add:hover { border-color: var(--accent); color: var(--accent); }
+  .mproj-add .plus { font-size: 16px; line-height: 1; font-weight: 600; }
+  input[type=text], input[type=password] {
+    width: 100%; font: inherit; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--panel); color: var(--text);
+  }
+  input[type=text]:focus, input[type=password]:focus { outline: none; border-color: var(--accent); }
+  .list { flex: 1; overflow: auto; }
+  .row {
+    display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px;
+    border-bottom: 1px solid #f1f2f4; cursor: pointer; font-size: 12px;
+  }
+  .row:hover { background: var(--bg); }
+  .row.active { background: var(--accent-soft); }
+  .row .m { width: 46px; font-weight: 600; color: var(--muted); flex: none; }
+  .row .st { width: 34px; flex: none; font-weight: 600; }
+  /* 路径最多两行：短路径仍单行，长路径换行而不是直接截断（配合 title 显示完整 URL） */
+  .row .p {
+    flex: 1; min-width: 0; word-break: break-all;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .row .ms { color: var(--muted); flex: none; font-size: 11px; }
+  .st.s2 { color: var(--ok); } .st.s4 { color: var(--warn); } .st.s5 { color: var(--err); }
+  .tag.stream { background: #f1efe8; color: #5f5e5a; }
+  .detail { flex: 1; overflow: auto; padding: 16px 20px; }
+  .empty { color: var(--muted); padding: 40px; text-align: center; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  .url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+  table.kv { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.kv td { padding: 3px 6px; vertical-align: top; border-bottom: 1px solid #f1f2f4; }
+  table.kv td:first-child { width: 200px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  pre.body {
+    margin: 8px 0 0; padding: 12px; background: #fbfbfc; border: 1px solid var(--border);
+    border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 420px; overflow: auto;
+  }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  /* ── 详情：返回值置顶，参数分「业务 / 通用」，Headers 垫底 ── */
+  .status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .status-line .code { font-size: 20px; line-height: 1.2; font-weight: 700; }
+  /* ── 详情顶部摘要：接口 / 传参 / 返回，各一行；完整版在下面（重复是有意的）── */
+  .summary { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px; }
+  .summary .srow { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 7px; font-size: 12px; }
+  .summary .srow:last-child { margin-bottom: 0; }
+  .summary .srow > .k { flex: none; width: 34px; color: var(--muted); font-size: 11px; padding-top: 2px; }
+  .summary .srow > .v { flex: 1; min-width: 0; word-break: break-all; }
+  .summary .srow > .v.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .pill {
+    font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+  }
+  .sec { margin-top: 14px; }
+  .sec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .sec-head .t { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .sec-head .n { font-size: 11px; color: var(--muted); }
+  .sec-head button { margin-left: auto; padding: 2px 9px; font-size: 11px; }
+  /* 小节右侧的一组按钮（如返回值：放大查看 / 复制）——整组一起靠右 */
+  .sec-head .sh-acts { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .sec-head .sh-acts button { margin-left: 0; }
+  /* 折叠区：通用参数 / 原始 Body / Headers */
+  details.fold { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 9px; }
+  details.fold > summary {
+    cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted);
+    list-style: none; user-select: none;
+  }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary::before { content: '▸ '; }
+  details.fold[open] > summary::before { content: '▾ '; }
+  details.fold > summary:hover { color: var(--accent); }
+  details.fold .fold-inner { margin-top: 9px; }
+  table.kv .src {
+    font-size: 10px; color: var(--muted); border: 1px solid var(--border);
+    border-radius: 4px; padding: 0 3px; margin-left: 4px;
+  }
+  /* 返回值 JSON 语法高亮 */
+  pre.body .j-key { color: #2b6cb0; }
+  pre.body .j-str { color: #9a5b00; }
+  pre.body .j-num { color: #1d4ed8; }
+  pre.body .j-bool { color: #a32d2d; }
+  pre.body .j-null { color: var(--muted); }
+  /* textarea 的基础样式仍被返回值弹窗（.modal-editor）与 Mock 编辑器（.mock-body-editor）复用；
+     手写规则 JSON 的抽屉删掉后这条不能跟着删（ADR-036） */
+  textarea {
+    flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px; resize: none;
+  }
+  /* ── 分享快照的结果（详情页内联一行；前台不做快照列表管理）── */
+  .snap-result {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 7px 9px;
+    border: 1px dashed var(--accent); border-radius: 8px; background: var(--accent-soft); font-size: 12px;
+  }
+  .snap-result .k { flex: none; color: var(--muted); }
+  .snap-result .v { flex: 1; word-break: break-all;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  /* 登录页 */
+  #login-view {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+  }
+  .login-card {
+    width: 340px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px 24px; box-shadow: 0 8px 30px rgba(0,0,0,.05);
+  }
+  .login-card h1 { font-size: 17px; margin: 0 0 4px; }
+  .login-card .desc { color: var(--muted); font-size: 12px; margin: 0 0 18px; }
+  .login-card label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  .login-card .err { color: var(--err); font-size: 12px; margin: 10px 0 0; min-height: 16px; }
+  .login-card button { width: 100%; margin-top: 16px; padding: 8px; }
+  .login-card .pw-hint { font-size: 11px; color: var(--muted); margin-top: 12px; }
+  /* ── 模式切换（浏览 / Mock）── */
+  .modeswitch { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex: none; }
+  .ms-btn { border: none; border-radius: 0; padding: 4px 14px; font-size: 12px; background: var(--panel); color: var(--muted); }
+  .ms-btn:hover { color: var(--accent); border-color: transparent; }
+  .ms-btn.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  /* ── Mock 模式 ── */
+  /* min-width:0 + 省略号：工具栏右侧多了「重置指针」按钮后，长项目名不再把头部顶宽 */
+  .mock-head {
+    flex: 1; min-width: 0; font-size: 12px; color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mock-item { padding: 8px 10px; border-bottom: 1px solid #f1f2f4; cursor: pointer; }
+  .mock-item:hover { background: var(--bg); }
+  .mock-item.active { background: var(--accent-soft); }
+  .mock-item .l1 { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .mock-item .m { width: 42px; font-weight: 600; color: var(--muted); flex: none; font-size: 11px; }
+  .mock-item .p {
+    flex: 1; min-width: 0; word-break: break-all;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .mock-item .l2 { margin: 3px 0 0 50px; font-size: 11px; color: var(--muted); }
+  /* 列表项上的开/关与删除：整行点击 = 选中，所以这两个按钮必须 stopPropagation。
+     类名刻意用 .tg / .rm 这种短名，避免撞上全局规则（如 .tag / .empty）。
+     两者都做得比正文大一档：列表里直接开/关、删除，不用先点进编辑器（ADR-019）。 */
+  /* 开/关：开启时实心绿（一眼看出哪些规则正在生效），关闭时灰底 */
+  .mock-item .tg {
+    flex: none; min-width: 38px; text-align: center; cursor: pointer;
+    font-size: 12px; font-weight: 600; line-height: 1.4; padding: 3px 8px; border-radius: 6px;
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .mock-item .tg:hover { filter: brightness(1.08); color: #fff; border-color: var(--accent); }
+  .mock-item .tg:not(.on) { background: #f1efe8; color: #5f5e5a; border-color: #dcd7cb; }
+  .mock-item .tg:not(.on):hover { border-color: var(--accent); color: var(--accent); }
+  /* 「未保存」草稿标记：暖色，和已落库的规则区分开 */
+  .mock-item .draft-tag {
+    flex: none; font-size: 10px; line-height: 1.5; padding: 1px 6px; border-radius: 4px;
+    background: #fbf1e2; border: 1px solid #ecd9bb; color: var(--warn); font-weight: 600;
+  }
+  /* 删除：比开/关更大更红（浅红底 + 深红描边），找不到或误点都是事故 */
+  .mock-item .rm {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    min-width: 34px; height: 27px; padding: 0; border-radius: 6px; cursor: pointer;
+    font-size: 17px; line-height: 1; font-weight: 700;
+    background: #fdecea; border: 1px solid #e0a49d; color: var(--err);
+  }
+  .mock-item .rm:hover { background: var(--err); border-color: var(--err); color: #fff; }
+  /* ── 项目导航（C14 / ADR-033）已撤出 Mock 模式：Mock 是纯私有工作台，
+     项目（含共享模板）的管理与预览统一在「模板」模式。── */
+  .mini-btn { flex: none; font-size: 11px; padding: 2px 8px; border-radius: 5px; }
+
+  /* ── 模板模式（C14）：私有 / 共享两 tab，只列项目 item ── */
+  .tpl-wrap { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 28px 16px; }
+  .tpl-panel { width: 100%; max-width: 860px; }
+  .tpl-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .tpl-tab { border: none; background: none; padding: 8px 18px; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+  .tpl-tab:hover { color: var(--accent); }
+  .tpl-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tpl-head { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 12px; color: var(--muted); }
+  .tpl-head .grow { flex: 1; }
+  /* 项目按网格排布：卡片等宽、列数自适应；新建入口是网格里的最后一项（一个大号「+」） */
+  .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
+  .tpl-item {
+    display: flex; flex-direction: column; gap: 8px; padding: 12px 13px; min-height: 86px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
+    cursor: pointer; text-align: left; font: inherit; color: inherit;
+  }
+  .tpl-item:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(15, 110, 86, .08); }
+  .tpl-item .ttl { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .tpl-item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+  .tpl-item .nm.off { color: var(--muted); text-decoration: line-through; font-weight: 500; }
+  .tpl-item .foot { display: flex; align-items: center; gap: 6px; margin-top: auto; flex-wrap: wrap; row-gap: 6px; }
+  .tpl-item .foot .meta { flex: 1; font-size: 11px; color: var(--muted); }
+  .tpl-item .ro { flex: none; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: #f1efe8; color: var(--muted); border: 1px solid #dcd7cb; }
+  /* 待删除：和「已归档」必须一眼分开——一个是长期保留，一个有倒计时 */
+  .tpl-item .ro.warn, .ro.warn { background: #fdecea; border-color: #e0a49d; color: var(--err); }
+  .tpl-item.pending { border-style: dashed; }
+  /* 删除确认态：整张卡换底色，避免「已经点了删除」和「只是打开了这张卡」长得一样 */
+  .confirm-card { border-color: #e0a49d; background: #fdf7f6; }
+  .tpl-new { align-items: center; justify-content: center; border-style: dashed; background: transparent; color: var(--muted); font-size: 28px; font-weight: 300; line-height: 1; }
+  .tpl-new:hover { border-style: solid; border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .tpl-note { margin-top: 12px; font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .mock-item .l2.proj { opacity: .85; }
+  /* 项目卡（编辑器上方的作用域条）：写哪 / 读哪必须一眼分清 */
+  .scope-card { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+  .scope-card .sc-main { flex: 1; min-width: 200px; }
+  .scope-card .sc-title { font-size: 14px; font-weight: 600; }
+  .scope-card .sc-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .scope-card .sc-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hist-item { border-bottom: 1px solid #f1f2f4; padding: 7px 2px; font-size: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .hist-item .op { font-weight: 600; }
+  .hist-item .meta { color: var(--muted); font-size: 11px; }
+  /* ── 多返回值：命中方式 + 可拖动排序的返回值列表 ── */
+  .pick-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12px; margin: 2px 0 6px; }
+  .pick-row label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .pick-row select { padding: 2px 6px; font-size: 12px; }
+  .resp-list { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .resp-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--panel);
+    border-bottom: 1px solid #f1f2f4; font-size: 12px; cursor: pointer; user-select: none;
+  }
+  .resp-item:last-child { border-bottom: none; }
+  .resp-item:hover { background: var(--bg); }
+  .resp-item.active { background: var(--accent-soft); }
+  .resp-item.dragging { opacity: .45; }
+  .resp-item.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+  .resp-item.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
+  .resp-item .drag { flex: none; color: var(--muted); cursor: grab; letter-spacing: -2px; }
+  .resp-item .idx { flex: none; width: 20px; text-align: center; font-weight: 600; color: var(--muted); }
+  .resp-item .st { flex: none; font-weight: 600; }
+  .resp-item .ct, .resp-item .nm {
+    flex: none; max-width: 150px; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; font-size: 11px; color: var(--muted);
+  }
+  .resp-item .nm { color: var(--accent); }
+  .resp-item .pv {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 11px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .resp-item .racts { flex: none; display: flex; align-items: center; gap: 4px; opacity: .55; }
+  .resp-item:hover .racts, .resp-item.active .racts { opacity: 1; }
+  .resp-item .racts button { padding: 3px 9px; font-size: 12px; }
+  .resp-item .racts .rm {
+    padding: 3px 11px; font-size: 14px; line-height: 1.2; font-weight: 700;
+    background: #fdecea; border-color: #e0a49d; color: var(--err);
+  }
+  .resp-item .racts .rm:hover { background: var(--err); border-color: var(--err); color: #fff; }
+  .resp-edit { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+  .resp-edit .sec-head { margin-top: 12px; }
+  .acts { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  /* 删除/丢弃草稿：比同排的保存、复制更大更红，是这一排里最醒目的动作 */
+  .acts button.danger { padding: 6px 18px; font-size: 14px; font-weight: 600; }
+  .grid3 { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 6px 10px; align-items: center; font-size: 12px; margin-top: 10px; }
+  .grid3 label { font-size: 11px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  /* 匹配条件（method / host / path，ADR-026）：只读，压成一行显示。
+     刻意不做成输入框——它不是给人填的，做成框只会让人去点、去改；值仍可选中复制。 */
+  .match-line {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 9px; word-break: break-all; user-select: text;
+  }
+  .match-line .sep { color: var(--muted); }
+  .match-line .none { color: var(--muted); }
+  /* 入参：全部排在一行里（不够宽自动换行），每个是「勾选 键 = 值」的小块 */
+  .params-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .pchip {
+    display: inline-flex; align-items: center; gap: 3px; flex: none;
+    border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--panel);
+  }
+  .pchip.on { border-color: var(--accent); background: var(--accent-soft); }
+  .pchip input[type=text] {
+    border: none; background: transparent; padding: 2px 1px; font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border-radius: 0;
+    color: var(--text);
+  }
+  .pchip input[type=text]:focus { border: none; outline: none; }
+  .pchip .pp-k { width: 84px; font-weight: 600; }
+  .pchip .pp-v { width: 120px; }
+  .pchip .eq { color: var(--muted); font-size: 11px; }
+  /* 匹配/忽略状态：可点的小胶囊，绿色=参与匹配，灰=忽略 */
+  .pchip .pp-st {
+    font-size: 11px; line-height: 1; padding: 3px 7px; border-radius: 999px;
+    cursor: pointer; user-select: none; white-space: nowrap;
+    background: var(--border); color: var(--muted);
+  }
+  .pchip .pp-st.on { background: var(--accent); color: #fff; }
+  .pchip .pp-st:hover { filter: brightness(1.08); }
+  .pchip.add { border-style: dashed; color: var(--muted); cursor: pointer; font-size: 11px; }
+  .pchip.add:hover { border-color: var(--accent); color: var(--accent); }
+  .hint { font-size: 11px; color: var(--muted); }
+  .note {
+    font-size: 12px; padding: 7px 10px; border-radius: 8px; margin-bottom: 12px;
+    background: #fdf6e3; color: #854f0b; border: 1px solid #f2e2b8;
+  }
+  textarea.editor-body {
+    width: 100%; min-height: 200px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; line-height: 1.55; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; resize: vertical; color: var(--text); background: var(--panel);
+  }
+  .inline-inputs { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+  .inline-inputs input[type=text] { width: auto; flex: none; }
+  textarea.mock-body-editor { height: 360px; min-height: 260px; max-height: 60vh; resize: vertical; }
+
+  /* ── CLI 登录接力确认框（ADR-029）──
+     这是「把会话交给本机 CLI」的唯一出口：没有这个确认框，任何一个本地进程
+     诱导用户打开带端口的链接就能静默拿走会话 token，所以它不能省、也不能默认同意。 */
+  .cli-consent {
+    position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center;
+    background: rgba(15, 23, 42, .45); padding: 24px;
+  }
+  .cli-consent.hidden { display: none; }
+  .cli-consent-box {
+    width: min(480px, 100%); background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: 0 18px 48px rgba(15, 23, 42, .28); padding: 16px;
+  }
+  .cli-consent-box h2 { font-size: 14px; margin: 0 0 4px; }
+  .cli-consent-box .sub { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+  .cli-consent-box dl { margin: 0 0 12px; font-size: 12px; }
+  .cli-consent-box dt { color: var(--muted); }
+  .cli-consent-box dd { margin: 0 0 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  .cli-consent-tools { display: flex; gap: 8px; justify-content: flex-end; }
+  .cli-consent-msg { font-size: 12px; color: var(--muted); margin-top: 10px; min-height: 16px; }
+
+  /* ── 返回值放大查看（树形查看器）── */
+  .modal {
+    position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
+    background: rgba(15, 23, 42, .45); padding: 24px;
+  }
+  .modal.hidden { display: none; }
+  .modal-box {
+    width: min(1100px, 100%); height: min(760px, 100%); display: flex; flex-direction: column;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 18px 48px rgba(15, 23, 42, .28);
+  }
+  .modal-head {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+  }
+  .modal-title {
+    flex: 1; min-width: 0; font-size: 13px; font-weight: 600; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .modal-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .modal-tools button { padding: 2px 9px; font-size: 11px; }
+  .modal-tools button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .modal-close {
+    flex: none; border: none; background: transparent; color: var(--muted);
+    font-size: 20px; line-height: 1; padding: 0 4px; cursor: pointer;
+  }
+  .modal-close:hover { color: var(--err); }
+  .modal-hint { padding: 6px 14px; font-size: 11px; color: var(--muted); border-bottom: 1px solid #f1f2f4; }
+  /* 编辑态：弹框里直接改返回值原文（换行/缩进原样保留） */
+  .modal-editor {
+    flex: 1; min-height: 0; width: 100%; border: none; border-radius: 0; resize: none;
+    padding: 12px 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; line-height: 1.6; color: var(--text); background: var(--panel); outline: none;
+  }
+  .modal-editor.hidden { display: none; }
+  .jtree-wrap { flex: 1; min-height: 0; display: flex; }
+  .jtree-wrap.hidden { display: none; }
+  .jtree {
+    flex: 1; min-width: 0; overflow: auto; padding: 10px 14px 24px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 18px;
+  }
+  /* ── 缩略图：整棵树压成一条竖条，框出当前可见范围（超长时才出现）── */
+  .jminimap {
+    flex: none; position: relative; width: 16px; margin: 0 8px 0 0; overflow: hidden;
+    border-radius: 4px; background: var(--bg); cursor: pointer; user-select: none;
+  }
+  .jminimap.hidden { display: none; }
+  .jminimap canvas { display: block; width: 100%; height: 100%; }
+  .jminimap .jm-view {
+    position: absolute; left: 0; right: 0; top: 0; height: 20px; pointer-events: none;
+    background: rgba(15, 110, 86, .16); border: 1px solid rgba(15, 110, 86, .55); border-radius: 3px;
+  }
+  /* white-space:pre + 真实空格缩进 —— 选中复制出来就是标准 JSON 的缩进。
+     ⚠️ 这里必须用 display:block 而不是 flex：flex 会把每个 span 变成块级盒，
+     浏览器复制时会在每个 span 之间插换行（`"code"\n: \n0`），虽然还能 parse 但粘贴出来是烂的。
+     caret 用 inline-block 保持行内，才不会产生换行。 */
+  .jtree .trow { display: block; white-space: pre; border-radius: 4px; }
+  .jtree .trow:hover { background: var(--bg); }
+  .jtree .tind { display: inline; }
+  /* caret 的字符用伪元素生成：伪元素不进选区、不进剪贴板，所以「选中一段复制」拿到的仍是干净 JSON。
+     inline-block 是为了撑出固定 14px 的竖槽，同时保持行内（block 会产生换行） */
+  .jtree .tcaret {
+    display: inline-block; width: 14px; text-align: center;
+    color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .jtree .tcaret::before { content: '▾'; }
+  .jtree .tcaret.closed::before { content: '▸'; }
+  .jtree .tcaret:hover { color: var(--accent); }
+  /* 注意：这里不能用 .empty —— 会撞上全局的 `.empty { padding: 40px }`（空状态占位） */
+  .jtree .tcaret.leaf { cursor: default; }
+  .jtree .tcaret.leaf::before { content: ''; }
+  .jtree .tcaret.leaf:hover { color: var(--muted); }
+  .jtree .tk { color: #2b6cb0; }
+  .jtree .tp, .jtree .tb { color: var(--muted); }
+  .jtree .tmore { color: var(--muted); font-size: 11px; }
+  .jtree .ts { color: #9a5b00; }
+  .jtree .tn { color: #1d4ed8; }
+  .jtree .tbool { color: #a32d2d; }
+  .jtree .tnull { color: var(--muted); }
+  .jtree .traw { white-space: pre-wrap; word-break: break-all; }
+  /* 层级编辑：值/键可点击改成输入框；悬停虚线下划线提示可编辑 */
+  .jtree [data-edit] { cursor: text; border-bottom: 1px dashed transparent; }
+  .jtree [data-edit]:hover { border-bottom-color: var(--accent); }
+  .jtree .jted {
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    border: 1px solid var(--accent); border-radius: 3px; padding: 0 3px;
+    background: var(--panel); color: var(--text); min-width: 48px; width: 70%; max-width: 320px;
+  }
+  #toast {
+    position: fixed; left: 50%; top: 56px; transform: translateX(-50%);
+    background: #1f2937; color: #fff; font-size: 12px; padding: 8px 16px; border-radius: 8px;
+    z-index: 90; opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  #toast.show { opacity: .94; }
+  /* ── 项目动作的二次确认弹框（开关 / 删除共用）──
+     为什么不用 window.confirm（ADR-037 的老理由仍然成立）：局域网远程操作时它常被浏览器
+     策略拦掉，拦掉就等于「点了没反应」；也渲染不了「连带删几条规则」这种需要加粗的行。 */
+  .ec-modal {
+    position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center;
+    padding: 16px; background: rgba(15,23,42,.36);
+  }
+  .ec-modal.hidden { display: none; }
+  .ec-modal-box {
+    width: 430px; max-width: 100%; background: var(--panel); border-radius: 12px;
+    padding: 18px 20px 16px; box-shadow: 0 18px 48px rgba(15,23,42,.24);
+  }
+  .ec-modal-title { font-size: 15px; font-weight: 600; line-height: 1.5; }
+  .ec-modal-body { margin-top: 8px; font-size: 13px; line-height: 1.75; color: var(--muted); }
+  .ec-modal-body b { color: var(--text); font-weight: 600; }
+  .ec-modal-body .danger { color: var(--err); }
+  .ec-modal-body p { margin: 0 0 6px; }
+  .ec-modal-body p:last-child { margin-bottom: 0; }
+  .ec-modal-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<header class="topbar" id="app-top" style="display:none">
+  <div class="tb-left">
+    <div class="brand">EasyCharles <span class="ver" id="ver"></span></div>
+    <div class="modeswitch" id="mode-switch">
+      <button class="ms-btn active" data-mode="browse" type="button">浏览</button>
+      <button class="ms-btn" data-mode="mock" type="button">Mock</button>
+      <button class="ms-btn" data-mode="tpl" type="button">模板</button>
+    </div>
+    <div class="conn" id="conn"></div>
+  </div>
+  <div class="device-picker" id="device-picker">
+    <button class="dp-trigger" id="dp-trigger" type="button" title="选择设备；点击未绑定设备即可绑定">
+      <span class="dot off" id="dp-dot"></span>
+      <span class="dp-label" id="dp-label">全部设备</span>
+      <span class="caret">▾</span>
+    </button>
+    <div class="dp-panel hidden" id="dp-panel"></div>
+  </div>
+  <div class="tb-right">
+    <div class="stats"><span class="dot off" id="wsd"></span><span id="stats"></span></div>
+    <span class="stats" id="who"></span>
+    <button id="btn-about" title="架构原理与客户端接入">关于</button>
+    <button id="btn-logout">退出</button>
+  </div>
+</header>
+
+<div id="login-view">
+  <div class="login-card">
+    <h1>EasyCharles 控制台</h1>
+    <p class="desc">登录后进入你的用户空间，绑定设备查看记录</p>
+    <label for="in-phone">手机号（首次登录自动注册）</label>
+    <input type="text" id="in-phone" placeholder="例如 13800138000" autocomplete="off">
+    <label for="in-pw">登录口令</label>
+    <input type="password" id="in-pw" placeholder="登录口令">
+    <div class="err" id="login-err"></div>
+    <button class="primary" id="btn-login">登录 / 注册</button>
+    <div class="pw-hint">默认口令 123456，服务端可用 --password 修改</div>
+    <div class="pw-hint"><a href="/about" target="_blank" rel="noopener">这是什么？看架构原理与客户端接入 →</a></div>
+  </div>
+</div>
+
+<main id="app-main" style="display:none">
+  <aside class="sidebar" data-sidebar="records">
+    <div class="filters">
+      <input type="text" id="search" placeholder="搜索 URL 或状态码">
+      <button id="btn-clear" title="清空当前列表（仅当前空间，受设备筛选与搜索影响）">清空列表</button>
+    </div>
+    <div class="list" id="list"></div>
+    <div class="sidebar-resizer" title="拖动调整宽度"></div>
+  </aside>
+  <section class="detail" id="detail"><div class="empty">选择左侧任意一条请求查看详情</div></section>
+</main>
+
+<main id="mock-main" style="display:none">
+  <aside class="sidebar" data-sidebar="mock">
+    <!-- 项目横滑栏：把所有 mock 模块（= 私有项目）摊成一行，点一下就切，不必回模板模式 -->
+    <div class="mproj" id="mock-projbar" aria-label="全部 mock 项目"></div>
+    <div class="filters">
+      <span class="mock-head">Mock 接口 <span id="mock-count"></span></span>
+      <button id="btn-reset-ptr" title="把所有「按顺序」规则的进度归零（只影响我的私有规则）">重置指针</button>
+    </div>
+    <div class="list" id="mock-list"></div>
+    <div class="sidebar-resizer" title="拖动调整宽度"></div>
+  </aside>
+  <section class="detail" id="mock-editor"></section>
+</main>
+
+<!-- 模板模式（C14）：项目（模板）管理入口。只列项目本身，不列接口；点项目进规则视图 -->
+<main id="tpl-main" style="display:none">
+  <section class="tpl-wrap">
+    <div class="tpl-panel">
+      <div class="tpl-tabs" id="tpl-tabs">
+        <button class="tpl-tab" data-ttab="private" type="button">私有项目</button>
+        <button class="tpl-tab" data-ttab="shared" type="button">共享项目</button>
+      </div>
+      <div id="tpl-list"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<!-- 返回值放大查看 / 编辑：浏览模式显示标准 JSON 树；Mock 编辑器中打开时只显示返回值原文输入框 -->
+<div class="modal hidden" id="resp-modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title" id="resp-modal-title">返回值</span>
+      <div class="modal-tools">
+        <button id="rt-vtree" style="display:none" title="按层级树查看/修改，改完自动转回 JSON 文本">层级</button>
+        <button id="rt-vtext" style="display:none" title="按 JSON 文本编辑">文本</button>
+        <button id="rt-format" style="display:none" title="把 JSON 排版成 2 空格缩进">格式化 JSON</button>
+        <button id="rt-copy" title="复制完整返回值（始终是展开的 JSON，与当前收起状态无关）">复制</button>
+        <button id="rt-toggle">收起全部</button>
+      </div>
+      <button class="modal-close" id="resp-modal-close" title="关闭（Esc）">×</button>
+    </div>
+    <div class="modal-hint" id="resp-modal-hint"></div>
+    <div class="jtree-wrap" id="resp-tree-wrap">
+      <div class="jtree" id="resp-modal-body"></div>
+      <div class="jminimap hidden" id="resp-minimap"
+           title="整棵树缩略图：亮框 = 当前可见范围，点或拖动可跳转">
+        <canvas id="resp-mm-canvas"></canvas>
+        <div class="jm-view" id="resp-mm-view"></div>
+      </div>
+    </div>
+    <textarea class="modal-editor hidden" id="resp-modal-editor" spellcheck="false"
+              placeholder="在这里直接改返回值…"></textarea>
+  </div>
+</div>
+
+<!-- 手写规则 JSON 的抽屉已移除（ADR-036）：规则只经 Mock 编辑器可视化增删改。
+     整份 PUT /__ec/api/rules 仍留在协议里（mock CLI / 脚本用），控制台不再暴露这个入口。 -->
+
+<!-- 管理面板已拆到独立页 /admin（ADR-018 角色判定不变，入口与普通用户界面完全分离） -->
+
+<!-- 项目动作的二次确认弹框：开启/停用、删除共用。放 body 末尾，三种模式都能弹出来 -->
+<div class="ec-modal hidden" id="ec-modal">
+  <div class="ec-modal-box" role="dialog" aria-modal="true" aria-labelledby="ec-modal-title">
+    <div class="ec-modal-title" id="ec-modal-title"></div>
+    <div class="ec-modal-body" id="ec-modal-body"></div>
+    <div class="ec-modal-acts">
+      <button type="button" id="ec-modal-cancel">取消</button>
+      <button type="button" id="ec-modal-ok">确认</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+// 「全部私有项目」这个视图 id 不是真项目 id：g_ 前缀由服务端生成，不可能撞上
+const ALL_PROJECTS = '__all_private__';
+const state = {
+  session: null, user: null, records: [], devices: [], filterDevice: null, query: '',
+  selected: null, ws: null, info: null,
+  // 模式与 mock（规则）——「浏览 / Mock」是纯前端视图状态，不进协议；
+  // mock 是否生效只由每条规则的 enabled 决定（ADR-016）
+  mode: 'browse', rules: [], mockDraft: null,
+  tplTab: 'private',   // 模板模式当前 tab：'private' | 'shared'（纯前端视图状态）
+  // ── 项目（C14 / ADR-033）──
+  projects: [],        // GET /groups 的 GroupView[]：含 private（只我自己的）与 shared（全部）
+  allRules: [],        // GET /rules 的全部私有规则：跨项目查「这条接口有没有规则」要靠它
+  projectId: null,     // 当前工作项目（ALL_PROJECTS 或某个 private id）——写入口只认它
+  sharedId: null,      // 正在预览的共享项目 id（只读面板），不影响 projectId
+  sharedRules: [],     // 该共享项目的规则（只读展示用；写只能经 copy → 编辑 → share）
+  versions: [],        // 共享项目历史（GET /groups/:id/versions）
+  versionDetail: null, // 历史版本预览（含该版规则，只读）
+  busy: false,         // 项目级写操作（copy/share/rollback）进行中，防连点重复提交
+};
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ── 会话与 API ──
+function apiFetch(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {},
+    state.session ? { 'X-EC-Session': state.session } : {});
+  return fetch(path, opts).then((res) => {
+    if (res.status === 401 && state.session) {
+      // 会话失效 → 回登录页
+      state.session = null; state.user = null;
+      localStorage.removeItem('ec_session');
+      showLogin();
+    }
+    return res;
+  });
+}
+
+function showLogin() {
+  $('login-view').style.display = 'flex';
+  $('app-main').style.display = 'none';
+  $('mock-main').style.display = 'none';
+  $('app-top').style.display = 'none';
+  dpOpen = false; $('dp-panel').classList.add('hidden');
+  if (state.ws) { try { state.ws.close(); } catch (e) {} state.ws = null; }
+  // 项目与规则是整个会话的上下文：不清掉就会在下一个登录用户（可能是另一台机器上的另一个空间）
+  // 的界面上短暂显示上一个空间的项目名与规则内容
+  Object.assign(state, {
+    projects: [], allRules: [], rules: [], mockDraft: null,
+    projectId: null, sharedId: null, sharedRules: [], versions: [], versionDetail: null, busy: false,
+  });
+  closeConfirm();
+  try { localStorage.removeItem('ec_project'); } catch (e) {}
+}
+
+function showApp() {
+  $('login-view').style.display = 'none';
+  $('app-main').style.display = 'flex';
+  $('app-top').style.display = 'grid';
+  $('who').textContent = '空间：' + (state.user ? state.user.phone : '');
+}
+
+async function doLogin() {
+  const phone = $('in-phone').value.trim();
+  const password = $('in-pw').value;
+  $('login-err').textContent = '';
+  if (!phone) { $('login-err').textContent = '请输入手机号'; return; }
+  const res = await fetch('/__ec/api/login', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ phone, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { $('login-err').textContent = data.message || '登录失败（HTTP ' + res.status + '）'; return; }
+  state.session = data.session;
+  state.user = data.user;
+  localStorage.setItem('ec_session', data.session);
+  boot();
+}
+
+async function boot() {
+  if (!state.session) { showLogin(); return; }
+  // 恢复会话；新登录默认不绑定也不筛选设备
+  const me = await apiFetch('/__ec/api/me');
+  if (!me.ok) { showLogin(); return; }
+  state.user = (await me.json()).user;
+  showApp();
+  // 有 CLI 在等会话（地址里带 #cli-login）→ 现在就问用户要不要给（ADR-029）
+  maybeOfferCliLogin();
+  state.filterDevice = null;
+  renderPicker();
+  loadInfo(); loadDevices(); loadAll(); connectWs(); renderList(); renderDetail(); updateStats();
+  // Mock 侧要先拉项目表：规则列表按项目切片、写入口要 groupId，两样都靠它（C14）
+  void loadProjects().then(() => loadRules());
+  // 恢复上次的模式与模板 tab（纯前端视图状态）
+  const savedTab = localStorage.getItem('ec_tpl_tab');
+  if (savedTab === 'shared' || savedTab === 'private') state.tplTab = savedTab;
+  setMode(localStorage.getItem('ec_mode') || 'browse');
+}
+
+// ── 设备下拉（顶部中间）──
+let dpOpen = false;
+
+function deviceLabel(d) {
+  const brand = d.brand || d.manufacturer || '';
+  // 非 SDK 客户端（兼容层）只有 displayName/deviceName，回退避免列表显示空名
+  const model = d.marketName || d.model || d.displayName || d.deviceName || '';
+  const os = d.os ? d.os + (d.osVersion ? ' ' + d.osVersion : '') : '';
+  const user = d.userName || d.userId || '';
+  const label = [brand, model].filter(Boolean).join(' ') + (os ? ' · ' + os : '') + (user ? ' · ' + user : '');
+  return label || d.deviceId || '未知设备';
+}
+
+function myPhone() { return state.user ? state.user.phone : null; }
+
+function currentDevice() {
+  return state.filterDevice ? state.devices.find((d) => d.deviceId === state.filterDevice) || null : null;
+}
+
+function setPickerOpen(open) { dpOpen = open; renderPicker(); }
+
+function renderPicker() {
+  const dev = currentDevice();
+  $('dp-dot').className = 'dot ' + (dev ? (dev.online ? 'on' : 'off') : 'off');
+  $('dp-label').textContent = dev ? deviceLabel(dev) : '全部设备';
+  $('dp-trigger').classList.toggle('open', dpOpen);
+  const panel = $('dp-panel');
+  panel.classList.toggle('hidden', !dpOpen);
+  if (!dpOpen) { panel.innerHTML = ''; return; }
+
+  const phone = myPhone();
+  const rows = state.devices.map((d) => {
+    const mine = d.owner === phone;
+    const free = d.owner === null || d.owner === undefined;
+    const tag = mine ? '<span class="tag">我的</span>'
+      : free ? '<span class="tag">未绑定</span>'
+      : '<span class="tag other">已绑定 ' + esc(d.owner) + '</span>';
+    const btn = mine ? '<button class="danger" data-act="unbind">解绑</button>'
+      : '';
+    const hint = free ? '<span class="sub">点击选择并绑定</span>' : '';
+    return '<div class="dp-item' + (state.filterDevice === d.deviceId ? ' active' : '') +
+      (!mine && !free ? ' unavailable' : '') + '" data-did="' + esc(d.deviceId) + '">' +
+      '<span class="dot ' + (d.online ? 'on' : 'off') + '"></span>' +
+      '<span class="name">' + esc(deviceLabel(d)) + '</span>' +
+      tag + hint + btn + '</div>';
+  }).join('');
+
+  panel.innerHTML =
+    '<div class="dp-item' + (state.filterDevice ? '' : ' active') + '" data-all="1">' +
+      '<span class="dot off"></span><span class="name">全部设备</span>' +
+      '<span class="sub">不筛选</span></div>' +
+    '<div class="dp-sep"></div>' +
+    (state.devices.length ? rows
+      : '<div class="dp-empty">等待设备连接…（App 开 Mock 后出现）</div>');
+
+  panel.querySelectorAll('.dp-item').forEach((n) => {
+    n.onclick = (ev) => {
+      ev.stopPropagation(); // 面板内点击由本处理器决定开合，避免被"点击外部关闭"误判
+      // ① 全部设备：清除筛选
+      if (n.dataset.all) { state.filterDevice = null; setPickerOpen(false); renderList(); return; }
+      const did = n.dataset.did;
+      const btn = ev.target.closest('button');
+      // ② 解绑：保持面板打开，原地刷新
+      if (btn) {
+        const act = btn.dataset.act;
+        void (async () => {
+          await apiFetch('/__ec/api/devices/' + encodeURIComponent(did) + '/' + act, { method: 'POST' });
+          await refreshUserAndDevices();
+        })();
+        return;
+      }
+      const device = state.devices.find((d) => d.deviceId === did);
+      if (!device) return;
+      if (device.owner !== phone && device.owner !== null && device.owner !== undefined) {
+        toast('该设备已绑定到其他空间');
+        return;
+      }
+      void (async () => {
+        if (device.owner !== phone) {
+          const res = await apiFetch('/__ec/api/devices/' + encodeURIComponent(did) + '/bind', { method: 'POST' });
+          if (!res.ok || !(await res.json()).ok) {
+            toast('绑定失败，请重试');
+            return;
+          }
+        }
+        state.filterDevice = did;
+        await refreshUserAndDevices();
+        setPickerOpen(false);
+      })();
+    };
+  });
+}
+
+async function refreshUserAndDevices() {
+  const me = await apiFetch('/__ec/api/me');
+  if (me.ok) state.user = (await me.json()).user;
+  await loadDevices();
+  await loadAll();
+  renderPicker(); renderList();
+}
+
+// ── 记录 ──
+// 通用参数清单（来源：某个接入 App 的拦截器实测，已脱敏）
+//  · HttpUtils.getBaseRequestParams          业务固定参数：sid / tid / ref_tid
+//  · HttpAddParamsSignInterceptor            签名链追加：timestamp / noncestr / sign（签名 key 发出前已移除）
+//  · HttpUtils.legacyBaseRequestParams       老接口固定参数：ac / mc / u / vs / vc / hardName / bv / deviceName
+// 只用于「业务参数 / 通用参数」分组，不是白名单：未列出的键一律按业务参数展示。
+const COMMON_PARAMS = new Set([
+  'sid', 'tid', 'ref_tid', 'timestamp', 'noncestr', 'sign', 'appsignkey',
+  'ac', 'mc', 'u', 'vs', 'vc', 'hardname', 'bv', 'devicename',
+]);
+function isCommonParam(k) { return COMMON_PARAMS.has(String(k).toLowerCase()); }
+
+function tryJson(text) {
+  const s = String(text || '').trim();
+  if (!s || (s[0] !== '{' && s[0] !== '[')) return null;
+  try { return JSON.parse(s); } catch (e) { return null; }
+}
+
+/** 请求参数 = query + body（JSON / urlencoded），同名以 body 为准，再按业务/通用分组 */
+function requestParams(r) {
+  const req = r.request || {};
+  const map = new Map();
+  let q = req.query;
+  if (!q || !Object.keys(q).length) {
+    q = {};
+    try { new URL(req.url).searchParams.forEach((v, k) => { q[k] = v; }); } catch (e) {}
+  }
+  // query 解密（ADR-039）：密文参数那段已经解成若干项，就把密文那一行换成明文各项，
+  // 不再并排显示 —— 否则看起来像「发了两次」。
+  const qp = req.queryPlain && typeof req.queryPlain === 'object' ? req.queryPlain : null;
+  const cipherField = ((r.crypto || {}).query || {}).field || '';
+  Object.keys(q).forEach((k) => {
+    if (qp && k === cipherField) return;
+    map.set(k, { k, v: String(q[k]), src: 'query' });
+  });
+  if (qp) Object.keys(qp).forEach((k) => map.set(k, { k, v: String(qp[k]), src: 'dec' }));
+
+  const raw = req.body || '';
+  const ct = String((req.headers || {})['content-type'] || '').toLowerCase();
+  const json = raw ? tryJson(raw) : null;
+  if (json && typeof json === 'object' && !Array.isArray(json)) {
+    Object.keys(json).forEach((k) => {
+      const v = json[k];
+      map.set(k, { k, v: v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v), src: 'body' });
+    });
+  } else if (raw && /urlencoded/i.test(ct)) {
+    try { new URLSearchParams(raw).forEach((v, k) => map.set(k, { k, v, src: 'body' })); } catch (e) {}
+  }
+
+  const all = [...map.values()];
+  return { biz: all.filter((p) => !isCommonParam(p.k)), common: all.filter((p) => isCommonParam(p.k)) };
+}
+
+/** JSON 高亮：先切 token 再逐个转义，避免 esc 破坏引号匹配 */
+function jsonHighlight(raw) {
+  const re = /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g;
+  let out = '', last = 0, m;
+  while ((m = re.exec(raw))) {
+    out += esc(raw.slice(last, m.index));
+    if (m[1] !== undefined) {
+      out += '<span class="' + (m[2] ? 'j-key' : 'j-str') + '">' + esc(m[1]) + '</span>' + esc(m[2] || '');
+    } else if (m[3] !== undefined) {
+      out += '<span class="j-bool">' + m[3] + '</span>';
+    } else {
+      out += '<span class="j-num">' + m[4] + '</span>';
+    }
+    last = m.index + m[0].length;
+  }
+  return out + esc(raw.slice(last));
+}
+
+function bodyBlock(body, encoding, truncated) {
+  if (!body) return '<div class="meta">（无 body）</div>';
+  const note = truncated ? '（已截断 / 采样）' : '';
+  if (encoding === 'base64') {
+    return '<div class="meta">二进制内容（base64' + note + '）</div><pre class="body">' + esc(body.slice(0, 4000)) + '</pre>';
+  }
+  const json = tryJson(body);
+  if (json === null) return '<pre class="body">' + esc(body) + '</pre>';
+  return '<pre class="body">' + jsonHighlight(JSON.stringify(json, null, 2)) + '</pre>';
+}
+
+function bytesLabel(n) {
+  if (!n) return '0 B';
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(2) + ' MB';
+}
+
+function kvTable(map) {
+  const keys = Object.keys(map || {});
+  if (!keys.length) return '<div class="meta">无</div>';
+  return '<table class="kv">' + keys.map((k) =>
+    '<tr><td>' + esc(k) + '</td><td>' + esc(map[k]) + '</td></tr>').join('') + '</table>';
+}
+
+function paramsTable(list) {
+  if (!list.length) return '<div class="meta">（无业务参数）</div>';
+  return '<table class="kv">' + list.map((p) =>
+    '<tr><td>' + esc(p.k) + '</td><td>' + esc(p.v) +
+    (p.src === 'body' ? ' <span class="src">body</span>' : '') +
+    (p.src === 'dec' ? ' <span class="src">已解密</span>' : '') + '</td></tr>').join('') + '</table>';
+}
+
+function statusClass(st) { return 's' + String(st)[0]; }
+
+/** 列表只显示 path（不含 query）——参数一律去详情页看 */
+function shortPath(r) {
+  const req = r.request || {};
+  if (req.path) return req.path;
+  try { return new URL(req.url).pathname; } catch (e) { return req.url || ''; }
+}
+
+/** 接口标识：域名 + path（不含 query），用于详情页 */
+function ifaceLabel(r) {
+  const req = r.request || {};
+  const host = String(req.host || '');
+  const path = String(req.path || '');
+  if (host || path) return host + path;
+  try { const u = new URL(req.url); return u.host + u.pathname; } catch (e) { return String(req.url || ''); }
+}
+
+function clipText(s, n) { s = String(s); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+/** 一行式参数摘要：k=v · k=v（通用参数不显示；超量折叠成 +N 项） */
+function bizParamLine(r, cap, valMax) {
+  const n = cap || 8, vm = valMax || 40;
+  let ps;
+  try { ps = requestParams(r).biz; } catch (e) { return ''; }
+  if (!ps.length) return '';
+  const parts = ps.slice(0, n).map((p) => p.k + '=' + clipText(p.v, vm));
+  if (ps.length > n) parts.push('+' + (ps.length - n) + ' 项');
+  return parts.join(' · ');
+}
+
+function visible() {
+  let out = state.records;
+  if (state.filterDevice) out = out.filter((r) => r.deviceId === state.filterDevice);
+  if (state.query) {
+    const q = state.query.toLowerCase();
+    out = out.filter((r) => (r.request.url || '').toLowerCase().includes(q) || String(r.response.status).includes(q));
+  }
+  return out;
+}
+
+function renderList() {
+  const el = $('list');
+  const rows = visible().slice(0, 500);
+  $('btn-clear').disabled = rows.length === 0;
+  if (!rows.length) {
+    const selectedDevice = state.devices.find((d) => d.deviceId === state.filterDevice);
+    const needsBinding = (selectedDevice && selectedDevice.owner !== myPhone())
+      || !state.devices.some((d) => d.owner === myPhone());
+    const hint = needsBinding
+      ? '未绑定设备的请求不会显示；需要浏览时请先绑定一台设备'
+      : '让 App 走一遍代理，记录会实时出现在这里';
+    el.innerHTML = '<div class="empty">暂无请求<div class="hint" style="margin-top:6px">' +
+      esc(hint) + '</div></div>';
+    return;
+  }
+  el.innerHTML = rows.map((r) =>
+    '<div class="row' + (state.selected === r.id ? ' active' : '') + '" data-id="' + esc(r.id) + '"' +
+      ' title="' + esc(r.request.method + ' ' + (r.request.url || '')) + '">' +
+      '<span class="m">' + esc(r.request.method) + '</span>' +
+      '<span class="st ' + statusClass(r.response.status) + '">' + r.response.status + '</span>' +
+      '<span class="p">' + esc(shortPath(r)) + '</span>' +
+      (r.flags.mocked ? '<span class="tag">mock</span>' : '') +
+      (r.flags.decrypted ? '<span class="tag crypto">解密</span>' : '') +
+      (r.flags.streamed ? '<span class="tag stream">流式</span>' : '') +
+      '<span class="ms">' + r.durationMs + 'ms</span></div>'
+  ).join('');
+  // 行内不放操作按钮：动作统一收在右侧详情里（列表保持纯浏览）
+  el.querySelectorAll('.row').forEach((n) => { n.onclick = () => select(n.dataset.id); });
+}
+
+/** 找到该记录的接口（method + host + path）已存在的 mock 规则；没有则 null。
+ *  浏览页据此把「Mock 此接口」置灰：接口已 mock 就不再重复 mock（去 Mock 模式改现有规则）。
+ *  ⚠️ 用**全量私有规则**而不是当前项目那几条：按项目切片之后只看本项目，
+ *  同一个接口在另一个私有项目里已有规则却显示成「没 mock 过」，用户就会建出第二条
+ *  （两条同接口的规则同时启用时，命中只按 priority 选一条，另一条是纯噪音）。 */
+function findRuleForRecord(rec) {
+  const req = isPlainObject(rec && rec.request) ? rec.request : {};
+  const method = String(req.method || '').toUpperCase();
+  const host = String(req.host || '');
+  const path = String(req.path || '');
+  const rules = Array.isArray(state.allRules) ? state.allRules : [];
+  return rules.find((r) => {
+    const m = isPlainObject(r && r.match) ? r.match : {};
+    return String(m.method || '').toUpperCase() === method
+      && String(m.host || '') === host
+      && String(m.path || '') === path;
+  }) || null;
+}
+
+/**
+ * 返回值当前看的是明文还是密文（ADR-039）。
+ * 详情区每次重绘都会重建 DOM，所以这个状态要在 renderDetail 里重置；
+ * 「放大查看」读它，避免用户切到密文后弹框又变回明文。
+ */
+let respShowRaw = false;
+
+function renderDetail() {
+  const r = state.records.find((x) => x.id === state.selected);
+  if (!r) {
+    $('detail').innerHTML = '<div class="empty">选择左侧任意一条请求查看详情' +
+      '<div class="hint" style="margin-top:6px">选中后，这里会出现「分享快照」——生成免登录只读链接</div></div>';
+    return;
+  }
+  respShowRaw = false;
+
+  const status = r.response.status;
+  const flags = r.flags || {};
+  const mockedRule = findRuleForRecord(r);   // 该接口已有 mock 规则 → 「Mock 此接口」置灰
+  const params = requestParams(r);
+  const reqHeaders = r.request.headers || {};
+  const resHeaders = r.response.headers || {};
+
+  const commonFold = params.common.length
+    ? '<details class="fold"><summary>通用参数 (' + params.common.length + ')</summary>' +
+      '<div class="fold-inner">' + paramsTable(params.common) +
+      '<div class="meta" style="margin:8px 0 0">接入 App 的拦截器注入的固定参数与签名链，业务无关</div>' +
+      '</div></details>'
+    : '';
+
+  // ── 加解密（ADR-039）──
+  // body 已经是**明文**（服务端解密后写入），rawBody 是密文原文。
+  // 展示顺序按用户的实际需要排：先给能读的明文，密文收在折叠区里备用。
+  const reqRaw = typeof r.request.rawBody === 'string' ? r.request.rawBody : '';
+  const respRaw = typeof r.response.rawBody === 'string' ? r.response.rawBody : '';
+  const reqCryptoErr = (r.crypto && r.crypto.request && r.crypto.request.error) || '';
+  const respCryptoErr = (r.crypto && r.crypto.response && r.crypto.response.error) || '';
+  const reqQueryErr = (r.crypto && r.crypto.query && r.crypto.query.error) || '';
+
+  const rawReqFold = reqRaw
+    ? '<details class="fold" open><summary>请求 Body（解密后）</summary>' +
+      '<div class="fold-inner">' + bodyBlock(r.request.body, r.request.bodyEncoding, r.request.bodyTruncated) + '</div></details>' +
+      '<details class="fold"><summary>密文原文</summary>' +
+      '<div class="fold-inner">' + bodyBlock(reqRaw, 'utf8', false) + '</div></details>'
+    : r.request.body
+      ? '<details class="fold"><summary>原始 Body' + (r.request.bodyTruncated ? '（已截断）' : '') + '</summary>' +
+        '<div class="fold-inner">' + bodyBlock(r.request.body, r.request.bodyEncoding, false) + '</div></details>'
+      : '';
+
+  const respHint = (r.response.bodyEncoding === 'base64' ? 'base64' : 'JSON / text') +
+    ' · ' + bytesLabel(r.response.bodySize) + (respRaw ? '（密文大小）' : '');
+
+  // 顶部摘要用：一行式业务传参（返回值不放进摘要——下方「返回值」卡片紧接着就是全文）
+  const bizLine = bizParamLine(r);
+
+  $('detail').innerHTML =
+    // ① 顶部摘要：一眼看清「哪个接口 / 传了什么」——返回值不放这儿，下面紧跟全文
+    //    下面 ②③ 是完整版，上下内容重复是有意的
+    '<div class="card">' +
+      '<div class="status-line">' +
+        '<span class="st code ' + statusClass(status) + '">' + status + '</span>' +
+        '<span class="pill">' + r.durationMs + ' ms</span>' +
+        '<span class="pill">上游 ' + r.upstream.ms + ' ms</span>' +
+        (flags.mocked ? '<span class="tag">mock</span>' : '') +
+        (flags.streamed ? '<span class="tag stream">流式</span>' : '') +
+        (flags.decrypted ? '<span class="tag crypto">已解密</span>' : '') +
+        (flags.redirected ? '<span class="tag other">重定向</span>' : '') +
+        (r.upstream.error ? '<span class="tag other">' + esc(r.upstream.error) + '</span>' : '') +
+      '</div>' +
+      '<div class="acts">' +
+        '<button class="primary" data-mock="1"' +
+          (mockedRule ? ' disabled title="该接口已 mock，去 Mock 模式修改"' : '') +
+          '>Mock 此接口</button>' +
+        '<button data-snap="1">分享快照</button>' +
+        '<span class="hint">' + (mockedRule
+          ? '该接口已 mock，去 Mock 模式修改；分享快照：生成免登录只读链接'
+          : 'Mock：立即建一条启用的规则并保存，进去可改返回值；分享快照：生成免登录只读链接') + '</span>' +
+      '</div>' +
+      '<div class="snap-result" style="display:none"></div>' +
+      '<div class="summary">' +
+        '<div class="srow"><div class="k">接口</div>' +
+          '<div class="v mono" title="' + esc(r.request.url) + '">' +
+            esc(r.request.method) + ' ' + esc(ifaceLabel(r)) + '</div></div>' +
+        '<div class="srow"><div class="k">传参</div>' +
+          '<div class="v mono">' + (bizLine ? esc(bizLine) : '<span class="hint">（无业务参数）</span>') + '</div></div>' +
+      '</div>' +
+    '</div>' +
+    // ② 详细版：返回值（完整）
+    '<div class="card">' +
+      '<h2>返回值' + (respRaw ? ' <span class="pill">已解密</span>' : '') + '</h2>' +
+      (respCryptoErr ? '<div class="crypto-note">解密未成功，下面是接口原始返回：' + esc(respCryptoErr) + '</div>' : '') +
+      '<div class="sec-head" style="margin-bottom:6px"><span class="n">' + respHint + '</span>' +
+        (r.response.body
+          ? '<span class="sh-acts">' +
+              (respRaw ? '<button data-crypto="resp" title="在解密后的明文与原始密文之间切换">查看密文</button>' : '') +
+              '<button data-zoom="1" title="弹框放大查看，可按层级展开/收起">放大查看</button>' +
+              '<button data-copy="resp">复制</button>' +
+            '</span>'
+          : '') +
+      '</div>' +
+      '<div data-view="plain">' + bodyBlock(r.response.body, r.response.bodyEncoding, r.response.bodyTruncated) + '</div>' +
+      (respRaw
+        ? '<div data-view="raw" style="display:none">' + bodyBlock(respRaw, 'utf8', false) + '</div>'
+        : '') +
+    '</div>' +
+    // ③ 详细版：请求（完整 URL + 全部业务参数；通用参数与 Body 收进折叠区）
+    '<div class="card">' +
+      '<h2>请求 <span class="pill">' + esc(r.request.method) + '</span></h2>' +
+      (reqCryptoErr ? '<div class="crypto-note">请求体解密未成功，下面显示的是原始内容：' + esc(reqCryptoErr) + '</div>' : '') +
+      (reqQueryErr ? '<div class="crypto-note">query 里的密文参数解密未成功（URL 里仍是密文）：' + esc(reqQueryErr) + '</div>' : '') +
+      '<div class="url">' + esc(r.request.url) + '</div>' +
+      '<div class="sec"><div class="sec-head"><span class="t">业务参数</span>' +
+        '<span class="n">' + params.biz.length + ' 项</span>' +
+        (r.request.body ? '<button data-copy="req">复制 Body</button>' : '') +
+      '</div>' +
+      paramsTable(params.biz) + '</div>' +
+      commonFold + rawReqFold +
+    '</div>' +
+    // ④ Headers 与链路信息：不变，垫到最后
+    '<div class="card">' +
+      '<h2>Headers 与链路</h2>' +
+      '<div class="meta">' + esc(r.request.method) + ' · ' + esc(r.request.host) +
+        ' · 设备 ' + esc(r.deviceId || '-') + ' · 上游协议 ' + esc(r.upstream.protocol) + '</div>' +
+      '<details class="fold"><summary>请求 Headers (' + Object.keys(reqHeaders).length + ')</summary>' +
+        '<div class="fold-inner">' + kvTable(reqHeaders) + '</div></details>' +
+      '<details class="fold"><summary>响应 Headers (' + Object.keys(resHeaders).length + ')</summary>' +
+        '<div class="fold-inner">' + kvTable(resHeaders) + '</div></details>' +
+    '</div>';
+}
+
+function select(id) { state.selected = id; renderList(); renderDetail(); }
+
+async function loadAll() {
+  const res = await apiFetch('/__ec/api/records?limit=300');
+  if (!res.ok) return;
+  state.records = await res.json();
+  renderList(); updateStats();
+}
+
+// 清空当前列表：只清「当前空间 ∩ 当前筛选」可见的记录（服务端按 owner + deviceId/q 同口径过滤）
+async function clearVisible() {
+  const doomed = new Set(visible().map((r) => r.id));
+  if (!doomed.size) return;
+  const qs = new URLSearchParams();
+  if (state.filterDevice) qs.set('deviceId', state.filterDevice);
+  if (state.query) qs.set('q', state.query);
+  const suffix = qs.toString() ? '?' + qs.toString() : '';
+  const res = await apiFetch('/__ec/api/records' + suffix, { method: 'DELETE' });
+  if (!res.ok) return;
+  // 本地同步移除同批 id；当前不可见的记录保持不动
+  state.records = state.records.filter((r) => !doomed.has(r.id));
+  if (state.selected && doomed.has(state.selected)) state.selected = null;
+  renderList(); renderDetail(); updateStats();
+}
+
+async function loadDevices() {
+  const res = await apiFetch('/__ec/api/devices');
+  if (!res.ok) return;
+  state.devices = await res.json();
+  renderPicker();
+}
+
+async function loadInfo() {
+  const res = await apiFetch('/__ec/api/info');
+  if (!res.ok) return;
+  const info = await res.json();
+  state.info = info;
+  $('ver').textContent = 'v' + info.serverVersion + ' · 协议 v' + info.protocol;
+  const base = 'http://127.0.0.1:' + info.port;
+  $('conn').textContent = '控制台 ' + base + (info.lanMode ? ' · LAN' : ' · 仅回环');
+}
+
+function updateStats() {
+  $('stats').textContent = state.records.length + ' 条 · ' + state.devices.length + ' 台设备';
+}
+
+function connectWs() {
+  const ws = new WebSocket('ws://' + location.host + '/__ec/ws');
+  state.ws = ws;
+  ws.onopen = () => {
+    $('wsd').className = 'dot on';
+    ws.send(JSON.stringify({ v: 2, type: 'subscribe', payload: { session: state.session } }));
+  };
+  ws.onclose = (ev) => {
+    $('wsd').className = 'dot off';
+    if (ev.code === 4001) {
+      state.session = null; state.user = null;
+      localStorage.removeItem('ec_session');
+      showLogin();
+      return;
+    }
+    if (state.session) setTimeout(connectWs, 2000);
+  };
+  ws.onerror = () => { try { ws.close(); } catch (e) {} };
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'record') {
+      state.records.unshift(m.payload);
+      if (state.records.length > 2000) state.records.pop();
+      renderList();
+    } else if (m.type === 'device') {
+      const phone = myPhone();
+      const before = state.devices.filter((d) => d.owner === phone).map((d) => d.deviceId).sort().join('\0');
+      state.devices = Array.isArray(m.payload) ? m.payload : [];
+      const after = state.devices.filter((d) => d.owner === phone).map((d) => d.deviceId).sort().join('\0');
+      renderPicker();
+      if (before !== after) void loadAll();
+    }
+    updateStats();
+  };
+}
+
+// ── 模式切换：浏览 / Mock ──
+// 「模式」是纯前端视图状态（存 localStorage），不进协议；
+// mock 是否生效只由每条规则的 enabled 决定，避免出现第二个真值来源（ADR-016）。
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 1900);
+}
+
+function setMode(mode) {
+  state.mode = mode === 'mock' || mode === 'tpl' ? mode : 'browse';
+  localStorage.setItem('ec_mode', state.mode);
+  document.querySelectorAll('.ms-btn').forEach((b) => b.classList.toggle('active', b.dataset.mode === state.mode));
+  $('app-main').style.display = state.mode === 'browse' ? 'flex' : 'none';
+  $('mock-main').style.display = state.mode === 'mock' ? 'flex' : 'none';
+  $('tpl-main').style.display = state.mode === 'tpl' ? 'flex' : 'none';
+  // mock 规则对所有设备生效，Mock 模式下隐藏设备筛选，避免「以为只对某台设备生效」；
+  // 模板模式看的是项目归属（按登录空间），也和设备无关，同样隐藏
+  $('device-picker').style.display = state.mode === 'browse' ? '' : 'none';
+  if (state.mode === 'mock') { renderMockList(); renderMockEditor(); }
+  else if (state.mode === 'tpl') { renderTpl(); }
+  else { renderList(); renderDetail(); }
+}
+
+function copyText(text, done) {
+  const ok = () => { if (done) done(); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(ok, () => {});
+    return;
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); ok(); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
+// ── Mock 模式：规则列表 + 编辑器 ──
+function isPlainObject(o) { return !!o && typeof o === 'object' && !Array.isArray(o); }
+
+/**
+ * 深拷贝一份「原样」用于保存时打底（无损，ADR-027）。
+ * 拷不动就退回空对象——宁可退回空（相当于旧行为），也不能让保存按钮抛异常。
+ */
+function clonePlain(o) {
+  if (!isPlainObject(o)) return {};
+  try { return JSON.parse(JSON.stringify(o)); } catch (e) { return {}; }
+}
+
+/** 把服务端错误如实翻成人话：EC 码要露出来（它是「为什么被挡」的唯一线索），文案用 message */
+function errTextFromBody(d, status) {
+  d = d || {};
+  const msg = String(d.message || (d.error && !isEcCode(d.error) ? d.error : '') || ('HTTP ' + status));
+  return isEcCode(d.error) ? d.error + '：' + msg : msg;
+}
+async function apiErrText(res) {
+  return errTextFromBody(await res.json().catch(() => ({})), res.status);
+}
+function isEcCode(x) { return typeof x === 'string' && /^EC_[A-Z_]+$/.test(x); }
+
+/**
+ * 拉**全部私有规则**（跨项目那一份，GET /rules 在 C14 后就是这个口径）。
+ * 保留全量不是为了省一次请求：浏览模式的「这条接口有没有规则」必须跨项目判断
+ * （`findRuleForRecord`），只看当前项目会让人在另一个项目里再建一条重复规则。
+ */
+async function loadRules() {
+  const res = await apiFetch('/__ec/api/rules');
+  if (!res.ok) return false;
+  const data = await res.json();
+  state.allRules = Array.isArray(data) ? data : [];
+  syncScopedRules();
+  renderMockList();
+  renderDetail();   // 规则变化会改变「Mock 此接口」是否可用，详情区同步刷新
+  return true;
+}
+
+/** 列表视图 = 全量私有规则按当前项目切片（不另发请求，避免两处真值） */
+function syncScopedRules() {
+  state.rules = rulesOfProject(state.allRules, state.projectId);
+}
+
+/** 项目表：private 只回自己的、shared 回全部（含归档），服务端已经过滤过 */
+async function loadProjects() {
+  const res = await apiFetch('/__ec/api/groups');
+  if (!res.ok) { toast('项目列表加载失败：' + (await apiErrText(res))); return false; }
+  const data = await res.json();
+  state.projects = (Array.isArray(data) ? data : []).filter((p) => p && typeof p === 'object');
+  // 选中项可能被另一个窗口删了：落回真实存在的项目，别让下一次保存打在虚空上
+  let saved = state.projectId;
+  if (!saved) { try { saved = localStorage.getItem('ec_project') || ''; } catch (e) { saved = ''; } }
+  state.projectId = resolveProjectSelection(state.projects, saved);
+  try { localStorage.setItem('ec_project', state.projectId || ''); } catch (e) {}
+  if (state.sharedId && !projectById(state.projects, state.sharedId)) {
+    state.sharedId = null; state.versions = []; state.versionDetail = null;
+  }
+  syncScopedRules();
+  renderMockList(); renderMockEditor();
+  renderTpl();   // 模板模式列表与项目数据同源，新建/改名/分享/删除都经这里刷新
+  return true;
+}
+
+/** 选哪个项目当工作项目：先保上次选的，再退第一个私有项目，一个都没有就是「全部」（空视图） */
+function resolveProjectSelection(projects, savedId) {
+  const mine = privateProjects(projects).map((p) => p.id);
+  if (savedId === ALL_PROJECTS) return ALL_PROJECTS;
+  if (savedId && mine.indexOf(savedId) >= 0) return savedId;
+  return mine.length ? mine[0] : ALL_PROJECTS;
+}
+
+/** 当前可写项目 id（没有私有项目 → null，调用方负责提示「先新建」） */
+function writableProjectId() {
+  const cur = projectById(state.projects, state.projectId);
+  if (isWritableProject(cur)) return cur.id;
+  const mine = privateProjects(state.projects);
+  return mine.length ? mine[0].id : null;
+}
+
+async function refreshMockData() {
+  await loadProjects();
+  await loadRules();
+}
+
+// ── 项目写操作（全部走管理面单条接口；控制台不再碰「整表 PUT」）──
+
+async function createProject(name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) { toast('项目名不能为空'); return null; }
+  const res = await apiFetch('/__ec/api/groups', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ group: { name: trimmed, enabled: true } }),
+  });
+  if (!res.ok) { toast('新建项目失败：' + (await apiErrText(res))); return null; }
+  const data = await res.json();
+  state.projectId = data.group && data.group.id ? data.group.id : state.projectId;
+  await refreshMockData();
+  toast('已新建项目「' + trimmed + '」');
+  return data.group;
+}
+
+/**
+ * 没有任何私有项目时自动补一个「默认项目」；已有项目就沿用之前的分组，什么都不建。
+ * Mock 是纯私有工作台，不该让用户先去模板模式建项目才能保存第一条规则。
+ * 返回可用项目 id（建不出来返回 null，调用方提示手动新建）。
+ */
+async function ensureDefaultProject() {
+  const existing = writableProjectId();
+  if (existing) return existing;
+  const g = await createProject('默认项目');
+  return (g && g.id) || writableProjectId();
+}
+
+async function renameProject(id, name) {
+  const p = projectById(state.projects, id);
+  if (!p) return;
+  const trimmed = String(name || '').trim();
+  if (!trimmed) { toast('项目名不能为空'); return; }
+  // 只提交 name / enabled：scope、ownerPhone、createdBy、lineage… 是服务端字段，
+  // 带上去是 400 EC_SCOPE_MISMATCH（协议 §4.7），不是「会被忽略」
+  const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id), {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ group: { name: trimmed, enabled: p.enabled !== false } }),
+  });
+  if (!res.ok) { toast('改名失败：' + (await apiErrText(res))); return; }
+  await refreshMockData();
+  toast('项目已改名');
+}
+
+async function toggleProject(id) {
+  const p = projectById(state.projects, id);
+  if (!p) return;
+  const next = p.enabled === false;
+  const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id) + '/enabled', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled: next }),
+  });
+  if (!res.ok) { toast('切换失败：' + (await apiErrText(res))); return; }
+  const data = await res.json().catch(() => ({}));
+  await refreshMockData();
+  toast((next ? '已启用项目' : '已停用项目') +
+    (Number.isFinite(data.affected) ? '，影响 ' + data.affected + ' 条规则' : ''));
+}
+
+/* ── 二次确认弹框（项目开关 / 删除共用）─────────────────────────────
+ * 所有项目级的「会改变命中或不可逆」的动作都从这里走，不再各写一套两段式：
+ * 弹框只负责问，真正的请求仍在 toggleProject / deleteProject / deleteSharedProject 里。
+ * 好处是文案、防连点、Esc/点遮罩关闭只有一份实现。
+ */
+let confirmState = null;
+
+function uiConfirm(opts) {
+  if (!opts) return;
+  confirmState = opts;
+  $('ec-modal-title').textContent = opts.title || '确认操作';
+  $('ec-modal-body').innerHTML = opts.bodyHTML || '';
+  const ok = $('ec-modal-ok');
+  ok.textContent = opts.okText || '确认';
+  ok.className = opts.danger ? 'danger' : 'primary';
+  ok.disabled = false;
+  $('ec-modal').classList.remove('hidden');
+  // 焦点给「取消」还是「确认」？危险操作默认落在取消上，回车不会误删
+  (opts.danger ? $('ec-modal-cancel') : ok).focus();
+}
+
+function closeConfirm() {
+  confirmState = null;
+  const box = $('ec-modal');
+  if (box) box.classList.add('hidden');
+}
+
+async function acceptConfirm() {
+  const s = confirmState;
+  if (!s) return;
+  const ok = $('ec-modal-ok');
+  if (ok.disabled) return;          // 防连点：删除 / 停用都不可重复发
+  ok.disabled = true;
+  try { await s.onOk(); } catch (e) { /* 回调内部已经 toast，这里只保证弹框能关掉 */ }
+  closeConfirm();
+}
+
+function bindConfirmModal() {
+  $('ec-modal-cancel').onclick = closeConfirm;
+  $('ec-modal-ok').onclick = () => { void acceptConfirm(); };
+  $('ec-modal').onclick = (ev) => { if (ev.target === $('ec-modal')) closeConfirm(); };
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && confirmState) closeConfirm();
+  });
+}
+
+/**
+ * 「开启/停用整组」的二次确认。
+ * 停用只关**命中**，不改规则自己的 enabled（ADR-030）——这一点必须在弹框里说清楚，
+ * 否则用户会以为点一下就把这组规则删了/关了，不敢点。
+ */
+function askToggleProject(id) {
+  const p = projectById(state.projects, id);
+  if (!p) return;
+  const n = rulesOfProject(state.allRules, id).length;
+  const off = p.enabled === false;
+  uiConfirm({
+    title: (off ? '启用' : '停用') + '项目「' + p.name + '」？',
+    bodyHTML: off
+      ? '<p>启用后，项目内 <b>' + n + '</b> 条规则恢复按各自的开关命中。</p>'
+      : '<p>停用只影响<b>是否命中</b>：项目内 <b>' + n + '</b> 条规则一条都不会返回 mock。</p>' +
+        '<p>规则本身、以及每条规则自己的开关都不改，重新启用即恢复原状。</p>',
+    okText: off ? '启用' : '停用',
+    danger: !off,
+    onOk: () => toggleProject(id),
+  });
+}
+
+/**
+ * 「删除项目」的二次确认（ADR-037）。
+ * - 私有：**立刻**级联删除（无归属的规则永不命中，所以不是「脱组保留」），没有回收站；
+ * - 共享：软删除，进待删除倒计时，期间可恢复；到期才真删。
+ * 倒计时的天数不在前端写死：服务端 `purgeAt` 才是唯一口径，删完由 toast / 列表「剩 N 天」显示。
+ */
+function askDeleteProject(scope, id) {
+  const p = projectById(state.projects, id);
+  if (!p) return;
+  if (scope === 'shared') {
+    const n = Number(p.ruleCount) || 0;
+    uiConfirm({
+      title: '删除共享项目「' + p.name + '」？',
+      bodyHTML: '<p>确认后进入<b>待删除</b>状态：<b>' + n + '</b> 条规则与全部历史版本原样保留，' +
+        '期间任何人都能「恢复」。</p>' +
+        '<p>倒计时结束仍无人恢复才真正删除（项目 + 规则 + 历史快照），不会当场消失。</p>',
+      okText: '删除',
+      danger: true,
+      onOk: () => deleteSharedProject(id),
+    });
+    return;
+  }
+  const inside = rulesOfProject(state.allRules, id).length;
+  uiConfirm({
+    title: '删除项目「' + p.name + '」？',
+    bodyHTML: '<p>会<b>立刻</b>连带删除该项目里的 <b>' + inside + '</b> 条 mock 规则' +
+      '（无归属的规则永不命中，所以不是「脱组保留」）。共享项目里的内容不受影响。</p>' +
+      '<p class="danger">私有项目没有回收站：确认后项目与规则一起消失，无法恢复。</p>',
+    okText: '删除',
+    danger: true,
+    onOk: () => deleteProject(id),
+  });
+}
+
+/** 待删除还剩几天（向上取整，最小 0）。TTL 由服务端的 purgeAt 决定，前端不自造天数 */
+function daysLeft(purgeAt) {
+  const t = Number(purgeAt);
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, Math.ceil((t - Date.now()) / 86400000));
+}
+
+/** 删除私有项目 = **立刻**级联删除里面所有规则（ADR-033 决策 6），所以确认框必须先报条数 */
+async function deleteProject(id) {
+  const p = projectById(state.projects, id);
+  if (!p) return;
+  const inside = rulesOfProject(state.allRules, id).length;
+  const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id), { method: 'DELETE' });
+  if (!res.ok) { toast('删除失败：' + (await apiErrText(res))); return; }
+  const data = await res.json().catch(() => ({}));
+  if (state.projectId === id) state.projectId = null;
+  if (state.mockDraft && state.mockDraft.projectId === id) state.mockDraft = null;
+  await refreshMockData();
+  toast('已删除项目，连带删除 ' + (data.removedRules == null ? inside : data.removedRules) + ' 条规则');
+}
+
+/**
+ * 删除共享项目 = **软删除**（ADR-037）：服务端只打 `pendingDeleteAt` / `purgeAt`，
+ * 规则与历史版本一条不动，倒计时内可以「恢复」；到期仍无人恢复才真删。
+ * 所以这里的文案不能说「已删除」，否则用户会以为内容当场没了、转头去重建一份。
+ */
+async function deleteSharedProject(id) {
+  const p = projectById(state.projects, id);
+  if (!p) return;
+  const inside = Number(p.ruleCount) || 0;
+  const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id), { method: 'DELETE' });
+  if (!res.ok) { toast('删除失败：' + (await apiErrText(res))); return; }
+  const data = await res.json().catch(() => ({}));
+  await refreshMockData();
+  toast('已标记为待删除：' + (p.name || id) + ' · ' +
+    daysLeft(data.purgeAt == null ? null : data.purgeAt) + ' 天后真删' +
+    (inside ? '，期间 ' + inside + ' 条规则原样保留，可恢复' : '，期间可恢复'));
+}
+
+/** 取消待删除：内容从未被改过，恢复即恢复原状 */
+async function restoreSharedProject(id) {
+  const name = projectNameOf(state.projects, id);
+  const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id) + '/restore', { method: 'POST' });
+  if (!res.ok) { toast('恢复失败：' + (await apiErrText(res))); return; }
+  await refreshMockData();
+  toast('已恢复共享项目：' + name);
+}
+
+/**
+ * copy：共享项目 → 我的私有项目（内容全部由服务端读，客户端只给 operationId）。
+ * 复制得到的项目名带「（副本）」是服务端起的（协议 §6.2），控制台不另起名字，
+ * 免得两边对不上；要改名随后用「重命名」。
+ */
+async function copyShared(id) {
+  const p = projectById(state.projects, id);
+  if (!p) return;
+  await runProjectOp('copy:' + id, async (operationId) => {
+    const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id) + '/copy', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ operationId: operationId }),
+    });
+    if (!res.ok) { toast('复制失败：' + (await apiErrText(res))); return false; }
+    const data = await res.json();
+    const g = data.group || {};
+    state.projectId = g.id || null;
+    state.sharedId = null; state.versions = []; state.versionDetail = null;
+    await refreshMockData();
+    toast('已复制到「我的项目」：' + (g.name || '副本') + ' · ' +
+      (Array.isArray(data.rules) ? data.rules.length : '?') + ' 条规则' +
+      (data.replayed ? '（这是那次超时请求的重放，没有重复创建）' : ''));
+    return true;
+  });
+}
+
+/** share：把我的私有项目**整项目覆盖**到来源共享项目（首发 = 新建一份共享） */
+async function sharePrivate(id) {
+  const priv = projectById(state.projects, id);
+  if (!priv) return;
+  const origin = priv.originSharedProjectId ? projectById(state.projects, priv.originSharedProjectId) : null;
+  const mine = rulesOfProject(state.allRules, id);
+  let diff;
+  if (origin) {
+    // 预览用的「原共享内容」要如实拉一次：拿不到就别硬算（宁可少说，不能说错）
+    const r = await apiFetch('/__ec/api/groups/' + encodeURIComponent(origin.id) + '/rules');
+    if (!r.ok) { toast('读取共享项目当前内容失败：' + (await apiErrText(r))); return; }
+    const cur = await r.json();
+    diff = shareDiff(mine, priv.lineage, Array.isArray(cur) ? cur : []);
+  } else {
+    diff = { added: mine.length, removed: 0, kept: 0, willTotal: mine.length, hadTotal: 0 };
+  }
+  const head = origin
+    ? ('覆盖共享项目「' + origin.name + '」？\n\n这次提交会把它整项目替换成我这份私有项目：\n' +
+       '· 新增 ' + diff.added + ' 条\n· 删除 ' + diff.removed + ' 条\n· 保留 ' + diff.kept + ' 条\n' +
+       '共享项目现在 ' + diff.hadTotal + ' 条 → 提交后 ' + diff.willTotal + ' 条' +
+       // 「整项目覆盖」连名字一起覆盖（服务端 share 就是按私有项目重建共享项目）。
+       // 共享项目的名字是**所有人**看到的，改名会跟着这次提交一起生效，必须事先说
+       (origin.name !== priv.name ? '\n· 名称：「' + origin.name + '」→「' + priv.name + '」（所有人看到的都会跟着变）' : ''))
+    : ('发布为新的共享项目「' + priv.name + '」？\n\n共享 ' + mine.length +
+       ' 条规则给本实例所有登录用户复制。');
+  if (!confirm(head + '\n\n' + SHARE_SELF_CHECK)) return;
+  await runProjectOp('share:' + id, async (operationId) => {
+    const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id) + '/share', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ operationId: operationId }),
+    });
+    if (!res.ok) { toast('分享失败：' + (await apiErrText(res))); return false; }
+    const data = await res.json();
+    await refreshMockData();
+    // 版本号 / 时间 / 操作人一律用服务端回传的那一份（协议 §7 第 11 条：客户端不得自造）
+    toast('已分享 → ' + ((data.sharedProject && data.sharedProject.name) || '共享项目') +
+      ' · 版本 ' + ((data.version && data.version.id) || '?') +
+      ' · ' + fmtTime(data.createdAt) + ' · ' + (data.actor || '?') +
+      (data.replayed ? '（重放：之前那次超时已经成功过）' : ''));
+    return true;
+  });
+}
+
+/**
+ * 发布前的自查提示（计划 §11「敏感数据」）：共享项目和它的**全部历史**对本实例每个
+ * 登录用户可见，旧版本还会保留后来删掉的返回 body。这句话必须由界面说，
+ * 不能只在文档里写 —— 用户看不到就等于没提醒。
+ */
+const SHARE_SELF_CHECK =
+  '⚠️ 分享前自查：返回值里不要带 token / cookie / 个人数据。\n' +
+  '共享后，本实例**所有登录用户**都能读到这些内容**和全部历史版本**——\n' +
+  '历史会长期保留后来被删掉的返回 body，回退也拿得回来。';
+
+/** 历史面板：列表 → 预览某版 → 回退（回退是**追加一条**，旧版本一条不删） */
+async function openSharedPanel(id) {
+  state.sharedId = id;
+  state.versions = [];
+  state.sharedRules = [];
+  state.versionDetail = null;
+  renderTpl();
+  const [vr, rr] = await Promise.all([
+    apiFetch('/__ec/api/groups/' + encodeURIComponent(id) + '/versions'),
+    apiFetch('/__ec/api/groups/' + encodeURIComponent(id) + '/rules'),
+  ]);
+  if (state.sharedId !== id) return;      // 期间切走了：不要把旧响应画到别的项目上
+  if (!vr.ok) { toast('历史加载失败：' + (await apiErrText(vr))); }
+  else { const data = await vr.json(); state.versions = Array.isArray(data) ? data : []; }
+  if (!rr.ok) { toast('规则加载失败：' + (await apiErrText(rr))); }
+  else { const data = await rr.json(); state.sharedRules = Array.isArray(data) ? data : []; }
+  renderTpl();
+}
+
+async function previewVersion(id, versionId) {
+  const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id) +
+    '/versions/' + encodeURIComponent(versionId));
+  if (!res.ok) { toast('版本预览失败：' + (await apiErrText(res))); return; }
+  const data = await res.json();
+  if (state.sharedId !== id) return;
+  state.versionDetail = data && data.version ? data : null;
+  renderTpl();
+}
+
+async function rollbackTo(id, versionId) {
+  const v = (state.versions || []).find((x) => x && x.id === versionId) || null;
+  const label = v ? (fmtTime(v.createdAt) + ' · ' + (v.actorPhone || '?') + ' · ' + v.ruleCount + ' 条') : versionId;
+  if (!confirm('回退共享项目到这个历史版本？\n\n' + label +
+    '\n\n回退**不是撤销**：它会把共享项目的当前内容整批替换成这一版快照，\n' +
+    '并**追加**一条 rollback 历史（旧记录一条不删）。\n所有已经复制过这个共享项目的私有副本都不会自动变化。')) return;
+  await runProjectOp('rollback:' + id + ':' + versionId, async (operationId) => {
+    const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id) + '/rollback', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ versionId: versionId, operationId: operationId }),
+    });
+    if (!res.ok) { toast('回退失败：' + (await apiErrText(res))); return false; }
+    const data = await res.json();
+    state.versionDetail = null;
+    await refreshMockData();
+    if (state.sharedId === id) await openSharedPanel(id);
+    toast('已回退 → 新版本 ' + ((data.version && data.version.id) || '?') +
+      ' · ' + fmtTime(data.createdAt) + ' · ' + (data.actor || '?'));
+    return true;
+  });
+}
+
+async function toggleArchive(id) {
+  const p = projectById(state.projects, id);
+  if (!p) return;
+  const next = !p.archived;
+  const res = await apiFetch('/__ec/api/groups/' + encodeURIComponent(id) + '/archive', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ archived: next }),
+  });
+  if (!res.ok) { toast((next ? '归档' : '取消归档') + '失败：' + (await apiErrText(res))); return; }
+  await refreshMockData();
+  toast(next ? '已归档（快照与历史一条不动，仍可回退）' : '已取消归档');
+}
+
+/**
+ * 项目级写操作（copy / share / rollback）共用的幂等外壳：
+ * **一次用户动作 = 一个 operationId**，失败后原地重试复用同一个（超时重发只生成一次版本，
+ * 协议 §5.5）。成功或换了动作就丢掉那条记录，否则下一次「我真的再分享一遍」会被
+ * 服务端当成重放而不生效。
+ */
+const opIds = {};
+async function runProjectOp(key, fn) {
+  if (state.busy) { toast('上一条项目操作还没结束，请先等它完成'); return; }
+  state.busy = true;
+  const operationId = reuseOperationId(opIds, key, key.split(':')[0]);
+  try {
+    const ok = await fn(operationId);
+    if (ok !== false) delete opIds[key];
+  } catch (e) {
+    toast('操作失败：' + (e && e.message ? e.message : '请检查连接后重试'));
+  } finally {
+    state.busy = false;
+    renderMockEditor(); renderTpl();
+  }
+}
+
+function newRuleId() { return 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// ── 项目归属（C14 / ADR-033）的纯逻辑 ──
+// 全部写成「输入数组 → 输出」的形式：控制台没有测试框架，这几条靠
+// tools/console-mock-check.mjs 直接切片断言（归属判错 = 静默失效，必须有机械闸）。
+
+/** 会话看得见的项目（服务端已按归属过滤过；这里只按档位分栏） */
+function privateProjects(projects) {
+  return (Array.isArray(projects) ? projects : []).filter((p) => p && p.scope === 'private');
+}
+function sharedProjects(projects) {
+  return (Array.isArray(projects) ? projects : []).filter((p) => p && p.scope === 'shared');
+}
+function projectById(projects, id) {
+  if (!id) return null;
+  const list = Array.isArray(projects) ? projects : [];
+  return list.find((p) => p && p.id === id) || null;
+}
+/**
+ * 唯一可写的档位：**自己的私有项目**。
+ * shared 走 copy → 编辑 → share；他人私有项目服务端不下发，所以这里拿到的一律是 null。
+ * 缺 scope 的脏值按 shared 处理（与读路径同一口径：宁可不让它进私有作用域）。
+ */
+function isWritableProject(p) { return !!p && p.scope === 'private'; }
+
+/** 某个视图下的规则：ALL_PROJECTS = 全部私有规则，否则只取该项目那几条 */
+function rulesOfProject(allRules, projectId) {
+  const list = Array.isArray(allRules) ? allRules : [];
+  if (!projectId || projectId === ALL_PROJECTS) return list;
+  return list.filter((r) => r && typeof r === 'object' && r.groupId === projectId);
+}
+
+/** 规则行 / 编辑器上的「归属项目」文案（协议 §5.4：翻转不产生静默失效的前提之一） */
+function projectNameOf(projects, id) {
+  const p = projectById(projects, id);
+  if (p) return p.name + (p.scope === 'shared' ? '（共享 · 不命中）' : '');
+  return id ? '项目 ' + id + '（不可见或已删除）' : '未归属（不命中）';
+}
+
+/** 一次写操作一个 operationId；失败重发必须复用同一个（服务端靠它幂等，协议 §5.5） */
+function newOperationId(kind) {
+  return 'c_' + String(kind || 'op') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+function reuseOperationId(cache, key, kind) {
+  if (!cache || typeof cache !== 'object' || !key) return newOperationId(kind);
+  const hit = cache[key];
+  if (typeof hit === 'string' && hit) return hit;
+  const fresh = newOperationId(kind);
+  cache[key] = fresh;
+  return fresh;
+}
+
+/**
+ * 分享前的增删预览：用**服务端的口径**算（私有条目 ↔ lineage ↔ 原共享 id），
+ * 不是靠界面上的名字猜。三个数就是确认框里的「新增 / 删除 / 保留」。
+ */
+function shareDiff(privateRules, lineage, oldSharedRules) {
+  const priv = Array.isArray(privateRules) ? privateRules : [];
+  const map = Array.isArray(lineage) ? lineage.filter((e) => e && typeof e === 'object') : [];
+  const byPrivateId = {};
+  for (const e of map) {
+    if (typeof e.privateRuleId === 'string') byPrivateId[e.privateRuleId] = e.sharedRuleId;
+  }
+  const oldIds = (Array.isArray(oldSharedRules) ? oldSharedRules : [])
+    .map((r) => (r && typeof r === 'object' ? String(r.id) : String(r)))
+    .filter((x) => x && x !== 'undefined');
+  const keptIds = [];
+  let added = 0;
+  for (const r of priv) {
+    const sid = r && byPrivateId[String(r.id)];
+    if (typeof sid === 'string' && sid && oldIds.indexOf(String(sid)) >= 0) keptIds.push(String(sid));
+    else added++;
+  }
+  const removed = oldIds.filter((id) => keptIds.indexOf(id) < 0).length;
+  return { added: added, removed: removed, kept: keptIds.length, willTotal: priv.length, hadTotal: oldIds.length };
+}
+
+/** 圈码标号（0 基）：列表里一眼看出「第几条」，超过 20 条退化成 #n */
+function circleNum(i) {
+  const m = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+  return i >= 0 && i < m.length ? m[i] : '#' + (i + 1);
+}
+
+/** 顺序模式（除「随机」外）的 pick 取值 —— 与协议 action.seqMode 一一对应 */
+const SEQ_PICKS = ['in-order', 'loop', 'once-then-passthrough'];
+
+/**
+ * 用户**新选**「按顺序」时的默认子模式。
+ * 用 loop 而不是协议缺省值 in-order：多条返回值最常见的用法就是「循环返回」，
+ * 「走完停在最后一条」反而几乎总要人再点一次下拉。
+ *
+ * ⚠️ 它只在**用户手动切换命中方式**的那一刻生效。`ruleToDraft()` 读存量规则时，
+ * `mode: 'sequence'` 却缺 `seqMode` 必须**仍按服务端的 in-order 显示**——否则会出现
+ * 「界面显示循环、服务端实际停在最后一条」的静默不一致（协议 §5.4 / architecture §5.2）。
+ */
+const DEFAULT_SEQ_PICK = 'loop';
+
+/**
+ * 切到「按顺序」时该用哪个子模式：已经是顺序子模式就保留，否则用默认（循环返回）。
+ * 纯函数，抽出来是为了让 tools/console-mock-check.mjs 能直接断言这条默认值
+ * （DOM 事件监听器没法在纯逻辑用例里跑）。
+ */
+function nextSeqPick(cur) {
+  return SEQ_PICKS.includes(cur) ? cur : DEFAULT_SEQ_PICK;
+}
+
+/** 一条返回值的草稿结构（status 可能是用户正在输入的字符串，保存时才 Number()） */
+function emptyResponse(over) {
+  return {
+    status: 200,
+    contentType: 'application/json',
+    headers: {},
+    name: '',
+    // 默认给一段格式化好的 JSON 骨架，省得新建物还要手敲第一对大括号
+    body: '{\n  "code": 0,\n  "msg": "ok"\n}',
+    ...(over || {}),
+  };
+}
+
+function emptyDraft() {
+  return {
+    id: newRuleId(), name: '', enabled: true, priority: 10,
+    method: 'GET', host: '', path: '',
+    // 归属项目（C14）：新建草稿必须先有个 private 项目才谈得上保存。
+    // 没有它就没有 groupId，而**无 groupId 的规则在 C14 下永不命中**（协议 §5.4），
+    // 服务端也会直接 400 —— 所以这里留 null，由 saveDraft() 在发请求前拦住。
+    projectId: null,
+    // 没有「匹配范围」开关：默认就是「域名 + 路径 + 入参」。
+    // 不校验入参 = 所有参数都切到「忽略」，保存时自然不写 match.params（协议层本来就这么定义）
+    params: [],
+    // 多返回值（协议 §5.4）：responses 是唯一真值来源，pick 决定取哪一条
+    responses: [emptyResponse()],
+    pick: 'specific',      // specific | in-order | loop | once-then-passthrough | random
+    pinIndex: 0,
+    sel: 0,                // 编辑器里当前选中编辑的条目（控制台本地状态，不进规则）
+    source: null,
+  };
+}
+
+/** 草稿的返回值列表（永不为空：列表被删空时补回一条，避免编辑器无内容可编辑） */
+function respList(d) {
+  if (!d) return [];
+  if (!Array.isArray(d.responses) || !d.responses.length) d.responses = [emptyResponse()];
+  return d.responses;
+}
+
+/** 草稿里「当前选中」的条目；下标越界一律夹回来 */
+function curResp(d) {
+  const rs = respList(d);
+  if (!rs.length) return null;
+  const n = Number(d.sel);
+  d.sel = Math.min(Math.max(Number.isFinite(n) ? Math.trunc(n) : 0, 0), rs.length - 1);
+  return rs[d.sel];
+}
+
+/** 当前选中条目的正文（放大编辑弹框读写都走它，避免各处再摸 body 字段） */
+function curBody(d) {
+  const cur = curResp(d);
+  return cur ? String(cur.body == null ? '' : cur.body) : '';
+}
+function setCurBody(d, text) {
+  const cur = curResp(d);
+  if (cur) cur.body = text;
+}
+
+/** 增删 / 换序后把 sel 与 pinIndex 夹回合法范围 */
+function normalizePick(d) {
+  const rs = respList(d);
+  if (!rs.length) return;
+  d.sel = Math.min(Math.max(Math.trunc(Number(d.sel) || 0), 0), rs.length - 1);
+  const p = Number(d.pinIndex);
+  d.pinIndex = Math.min(Math.max(Number.isFinite(p) ? Math.trunc(p) : 0, 0), rs.length - 1);
+}
+
+/**
+ * 把第 from 条移到第 to 条（拖动排序与 ↑↓ 共用）。
+ * `to` 是**移除之后**数组里的目标下标（与 Array.splice 的顺序一致）。
+ * 选中项与「指定」跟着条目走，不跟着下标跑偏——否则拖完会静默编辑到另一条上。
+ */
+function reorderResp(d, from, to) {
+  const rs = respList(d);
+  if (from === to || from < 0 || to < 0 || from >= rs.length) return;
+  if (to >= rs.length) to = rs.length - 1;
+  if (from === to) return;
+  const selIdx = d.sel;
+  const pinIdx = Number(d.pinIndex);
+  const [item] = rs.splice(from, 1);
+  rs.splice(to, 0, item);
+  const remap = (i) => {
+    if (i === from) return to;
+    if (from < to && i > from && i <= to) return i - 1;
+    if (to < from && i >= to && i < from) return i + 1;
+    return i;
+  };
+  d.sel = remap(Number.isFinite(Number(selIdx)) ? Math.trunc(Number(selIdx)) : 0);
+  d.pinIndex = remap(Number.isFinite(pinIdx) ? Math.trunc(pinIdx) : 0);
+  normalizePick(d);
+}
+
+/** 由一条记录的真实响应构建返回值条目（新建规则 / 重置为真实值 / 追加真实响应共用） */
+function responseFromRecord(rec, name) {
+  const resp = isPlainObject(rec.response) ? rec.response : {};
+  const hdrs = isPlainObject(resp.headers) ? resp.headers : {};
+  return emptyResponse({
+    status: Number.isFinite(Number(resp.status)) ? Number(resp.status) : 200,
+    contentType: hdrs['content-type'] || 'application/json',
+    headers: { ...hdrs },
+    name: name || '',
+    body: normalizeDraftBody(typeof resp.body === 'string' ? resp.body : ''),
+  });
+}
+
+/** 草稿的返回值默认存成 2 空格缩进的 JSON（合法就格式化；不合法保持原文不动） */
+function normalizeDraftBody(body) {
+  const text = typeof body === 'string' ? body : '';
+  const parsed = parseJsonValue(text);
+  return parsed.ok ? JSON.stringify(parsed.value, null, 2) : text;
+}
+
+// ── 「忽略」的入参：控制台本地知识，记在 localStorage，不进规则 / 协议（ADR-016 / ADR-021）──
+// match.params 只存「参与匹配」的参数；被忽略的参数按 ruleId → [{k,v}] 记在本地，
+// 这样保存并重开规则时它们仍会展示（只是「忽略」状态），而不是凭空消失。
+function ignoredKey(id) { return 'ec_ignored_' + id; }
+function loadIgnored(id) {
+  try {
+    const arr = JSON.parse(localStorage.getItem(ignoredKey(id)) || '[]');
+    return Array.isArray(arr)
+      ? arr.filter((x) => x && typeof x === 'object' && typeof x.k === 'string' && x.k)
+      : [];
+  } catch (e) { return []; }
+}
+function saveIgnored(id, list) {
+  try {
+    const norm = (Array.isArray(list) ? list : [])
+      .map((x) => ({ k: String(x && x.k != null ? x.k : '').trim(), v: x && x.v != null ? String(x.v) : '' }))
+      .filter((x) => x.k);
+    if (norm.length) localStorage.setItem(ignoredKey(id), JSON.stringify(norm));
+    else localStorage.removeItem(ignoredKey(id));
+  } catch (e) { /* localStorage 不可用（隐私模式 / 配额满）则静默跳过，仅影响便利性 */ }
+}
+function clearIgnored(id) { try { localStorage.removeItem(ignoredKey(id)); } catch (e) {} }
+
+/** 规则里的一条 mock 响应 → 草稿条目（headers 整体带走，避免保存时静默丢掉别的响应头） */
+function respItemFromMock(resp) {
+  const r = isPlainObject(resp) ? resp : {};
+  const hdrs = isPlainObject(r.headers) ? r.headers : {};
+  return {
+    status: Number.isFinite(Number(r.status)) ? Number(r.status) : 200,
+    contentType: hdrs['content-type'] || 'application/json',
+    headers: { ...hdrs },
+    name: typeof r.name === 'string' ? r.name : '',
+    body: normalizeDraftBody(typeof r.body === 'string' ? r.body : ''),
+    // 读进来那份**原样**留着，保存时用它打底（cond 等未知字段才不会丢，ADR-027）
+    _raw: clonePlain(r),
+  };
+}
+
+/** 草稿条目 → 规则里的 mock 响应（headers 保留内容，content-type 以编辑框为准） */
+function respItemToMock(item) {
+  const headers = isPlainObject(item.headers) ? { ...item.headers } : {};
+  const ct = String(item.contentType == null ? '' : item.contentType).trim();
+  if (ct) headers['content-type'] = ct; else delete headers['content-type'];
+  // 以原条目打底再覆盖：`cond`、未来的每条目扩展字段都跟着走
+  const mock = clonePlain(item._raw);
+  mock.status = Number(item.status) || 200;
+  mock.headers = headers;
+  mock.body = item.body == null ? '' : String(item.body);
+  const name = String(item.name == null ? '' : item.name).trim();
+  if (name) mock.name = name; else delete mock.name;
+  return mock;
+}
+
+function ruleToDraft(r) {
+  const m = isPlainObject(r.match) ? r.match : {};
+  const p = isPlainObject(m.params) ? m.params : {};
+  const keys = Object.keys(p);
+  const act = isPlainObject(r.action) ? r.action : {};
+  // 多返回值（协议 §5.4）：responses 优先；没有才回落到旧形态的单条 response
+  const raws = Array.isArray(act.responses) ? act.responses.filter(isPlainObject) : [];
+  let responses, pick, pinIndex;
+  if (raws.length) {
+    responses = raws.map(respItemFromMock);
+    if (act.mode === 'sequence') {
+      // 顺序 / 随机：pick 直接复用 seqMode（缺省 = 依次返回）
+      const sm = act.seqMode;
+      pick = sm === 'random' || SEQ_PICKS.includes(sm) ? sm : 'in-order';
+      pinIndex = 0;
+    } else {
+      // specific，或「有 responses 却缺 mode」的旧脏数据 → 指定某一条（越界夹回）
+      pick = 'specific';
+      // 只认真正的数字：服务端 clampIndex 也是这个口径（字符串 / NaN 一律当 0），
+      // 这里宽松的话，编辑器会显示第 ② 条而服务端实际返回第 ① 条——静默不一致
+      const raw = act.pinIndex;
+      const n = typeof raw === 'number' && Number.isFinite(raw) ? Math.trunc(raw) : 0;
+      pinIndex = Math.min(Math.max(n, 0), raws.length - 1);
+    }
+  } else {
+    responses = [respItemFromMock(act.response)];
+    pick = 'specific';
+    pinIndex = 0;
+  }
+  return {
+    id: r.id,
+    name: r.name || '',
+    enabled: r.enabled !== false,
+    priority: Number.isFinite(Number(r.priority)) ? Number(r.priority) : 0,
+    // 归属：读进来是什么就是什么（协议 §5.4 的「翻转不静默」要靠界面把这一项显示出来）
+    projectId: typeof r.groupId === 'string' && r.groupId ? r.groupId : null,
+    method: m.method || '', host: m.host || '', path: m.path || '',
+    // 参与匹配的参数（on）全部载入，再补上本地记住的「忽略」参数（on:false）；
+    // 已在 match.params 里的 key 不重复（用户后来又把它切回「匹配」的情况）
+    params: keys.map((k) => ({ k, v: String(p[k]), on: true }))
+      .concat(loadIgnored(r.id)
+        .filter((x) => !Object.prototype.hasOwnProperty.call(p, x.k))
+        .map((x) => ({ k: x.k, v: x.v, on: false }))),
+    responses, pick, pinIndex, sel: 0,
+    source: null,
+    // 打底用的原样副本（保存时只覆盖编辑器管的那些键，其余无损带走，ADR-027）。
+    // 只在内存草稿里，不进规则 JSON。
+    _raw: clonePlain(r), _rawMatch: clonePlain(m), _rawAction: clonePlain(act),
+  };
+}
+
+/** 由一条真实记录生成草稿：匹配条件与返回值都「带过来」 */
+function draftFromRecord(rec) {
+  const req = isPlainObject(rec.request) ? rec.request : {};
+  const d = emptyDraft();
+  d.method = req.method || 'GET';
+  d.host = req.host || '';       // 记录里的 host 天然带端口，避开「不带端口匹配不上」的坑
+  d.path = req.path || '';
+  d.responses = [responseFromRecord(rec)];
+  d.name = d.method + ' ' + d.path;
+  d.source = rec.id;
+  // 入参：业务参数默认参与匹配，公共参数默认不参与（每次都在变，勾上必然匹配不上）
+  const ps = requestParams(rec);
+  d.params = ps.biz.map((p) => ({ k: p.k, v: p.v, on: true }))
+    .concat(ps.common.map((p) => ({ k: p.k, v: p.v, on: false })));
+  return d;
+}
+
+function draftToRule(d) {
+  // ⚠️ 保存必须**无损**（ADR-027）：以读进来那份原样打底，再覆盖编辑器管的那些键。
+  // 编辑器不认识的东西（mock CLI 写的 `responses[].cond`、未来的 `groupId`、`latencyHint`…）
+  // 若跟着「重建对象」一起被抹掉，用户只是想改个 body，却把别人写进去的配置清空了——
+  // 这是静默失效，控制台与 CLI 两边都看不出发生过。
+  const rule = clonePlain(d._raw);
+  const match = clonePlain(d._rawMatch);
+  if (d.method) match.method = String(d.method).toUpperCase(); else delete match.method;
+  if (d.host) match.host = String(d.host); else delete match.host;
+  if (d.path) match.path = String(d.path); else delete match.path;
+  // 默认就是「域名 + 路径 + 入参」：切到「忽略」的参数不写进去。
+  // 一个都没勾 → 不写 match.params，协议层等价于「只匹配域名 + 路径」（ADR-016）
+  const params = {};
+  for (const p of d.params) {
+    if (!p.on) continue;
+    const k = String(p.k || '').trim();
+    if (!k) continue;
+    params[k] = p.v == null ? '' : String(p.v);
+  }
+  if (Object.keys(params).length) match.params = params; else delete match.params;
+  const list = respList(d);
+  const action = clonePlain(d._rawAction);
+  action.type = 'mock';
+  // 控制台没有延迟编辑项：读进来有就保留（CLI 可以 --delay-ms 2000），没有才写 0
+  const rawDelay = Number(action.delayMs);
+  action.delayMs = Number.isFinite(rawDelay) && rawDelay > 0 ? rawDelay : 0;
+  if (d.pick === 'specific' && list.length === 1) {
+    // 单条 + 指定 = 旧形态：存量规则保存后 JSON 一字不变，也不需要 responses 数组
+    action.mode = 'static';
+    action.response = respItemToMock(list[0]);
+    // 换形态时**必须删掉另一形态的字段**：留着旧的 responses 数组，服务端会优先读它
+    // （协议 §5.4 的判定顺序），用户改完保存却发现返回的还是老的那条
+    delete action.responses;
+    delete action.pinIndex;
+    delete action.seqMode;
+  } else if (d.pick === 'specific') {
+    action.mode = 'specific';
+    action.responses = list.map(respItemToMock);
+    action.pinIndex = Math.min(Math.max(Math.trunc(Number(d.pinIndex) || 0), 0), list.length - 1);
+    delete action.response;
+    delete action.seqMode;
+  } else {
+    action.mode = 'sequence';
+    // random 也是 sequence 的一种（协议 seqMode），不能因为不在 SEQ_PICKS 里就退回依次返回
+    action.seqMode = d.pick === 'random' || SEQ_PICKS.includes(d.pick) ? d.pick : 'in-order';
+    action.responses = list.map(respItemToMock);
+    delete action.response;
+    delete action.pinIndex;
+  }
+  rule.id = d.id;
+  rule.enabled = !!d.enabled;
+  rule.priority = Number(d.priority) || 0;
+  // 归属（C14）：草稿上有就写它；没有则跟着 _raw 原样走（无损打底，ADR-027）。
+  // 两边都没有时**不补空串**：空 groupId 服务端是 400，让 saveDraft() 在发请求前拦住更清楚
+  if (typeof d.projectId === 'string' && d.projectId) rule.groupId = d.projectId;
+  rule.match = match;
+  rule.action = action;
+  // 名字给空了就是不命名：留一个 name: '' 会让列表显示成空行，也让 CLI 的 diff 误报「改名」
+  const name = String(d.name == null ? '' : d.name).trim();
+  if (name) rule.name = name; else delete rule.name;
+  return rule;
+}
+
+/** 列表第二行：域名 · 入参匹配情况（不再有「匹配范围」二选一，直接说清实际存了什么） */
+function scopeLabel(m) {
+  const n = isPlainObject(m.params) ? Object.keys(m.params).length : 0;
+  return n ? '入参匹配 ' + n + ' 项' : '不校验入参';
+}
+
+/** 列表第二行补一句返回值条数与命中方式（多条时才显示，避免单项规则噪音） */
+function respLabel(r) {
+  const act = isPlainObject(r.action) ? r.action : {};
+  const n = Array.isArray(act.responses) ? act.responses.filter(isPlainObject).length : (isPlainObject(act.response) ? 1 : 0);
+  if (n <= 1) return '';
+  let how;
+  if (act.mode === 'sequence') {
+    how = { 'in-order': '依次', loop: '循环', 'once-then-passthrough': '依次后放行', random: '随机' }[act.seqMode] || '依次';
+  } else {
+    const p = Number(act.pinIndex);
+    how = '指定第 ' + circleNum(Math.max(Number.isFinite(p) ? Math.trunc(p) : 0, 0)) + ' 条';
+  }
+  return ' · ' + n + ' 条返回值（' + how + '）';
+}
+
+/**
+ * 模板模式（C14）：与「浏览 / Mock」平级的项目管理入口。
+ * 只列项目 item 本身（名字 / 规则数 / 状态），不列接口；
+ * 私有 item 点击进 Mock 工作台（自动归到该项目），共享 item 在本模式内只读预览。
+ */
+function renderTpl() {
+  const tabs = $('tpl-tabs');
+  const list = $('tpl-list');
+  if (!tabs || !list) return;
+  tabs.querySelectorAll('.tpl-tab').forEach((b) => b.classList.toggle('active', b.dataset.ttab === state.tplTab));
+  const mine = privateProjects(state.projects);
+  const shared = sharedProjects(state.projects);
+
+  // 共享详情视图：从共享 tab 点进来的只读预览（内容 + 历史 + copy / rollback / archive）
+  if (state.sharedId && state.tplTab === 'shared') {
+    list.innerHTML = sharedPanelHTML();
+    list.querySelectorAll('[data-ta]').forEach((n) => {
+      n.onclick = (ev) => {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        const act = n.dataset.ta;
+        const id = n.dataset.pid;
+        const vid = n.dataset.vid;
+        if (act === 'copy') { void copyShared(id); return; }
+        if (act === 'archive') { void toggleArchive(id); return; }
+        if (act === 'preview') { void previewVersion(id, vid); return; }
+        if (act === 'rollback') { void rollbackTo(id, vid); return; }
+        if (act === 'del-shared') { askDeleteProject('shared', id); return; }
+        if (act === 'restore') { void restoreSharedProject(id); return; }
+        if (act === 'close-shared') {
+          state.sharedId = null; state.versions = []; state.versionDetail = null; state.sharedRules = [];
+          renderTpl();
+        }
+      };
+    });
+    return;
+  }
+  if (state.sharedId) { state.sharedId = null; state.versions = []; state.versionDetail = null; state.sharedRules = []; }
+
+  if (state.tplTab === 'shared') {
+    const rows = shared.map((p) => {
+      const pending = typeof p.purgeAt === 'number';
+      return '<div class="tpl-item' + (pending ? ' pending' : '') + '" data-ta="open-shared" data-pid="' + esc(p.id) + '"' +
+        ' title="' + esc(p.id) + ' · 创建于 ' + fmtTime(p.createdAt) +
+          (pending ? ' · 待删除，' + esc(fmtTime(p.purgeAt)) + ' 自动真删' : '') + '">' +
+        '<div class="ttl">' +
+          '<span class="nm">' + esc(p.name) + '</span>' +
+          (pending ? '<span class="ro warn">待删除</span>' : (p.archived ? '<span class="ro">已归档</span>' : '')) +
+        '</div>' +
+        '<div class="foot">' +
+          '<span class="meta">' + (Number(p.ruleCount) || 0) + ' 条' +
+            (pending ? ' · 剩 ' + daysLeft(p.purgeAt) + ' 天' : '') + '</span>' +
+          (pending
+            ? '<button class="mini-btn" data-ta="restore" data-pid="' + esc(p.id) + '"' +
+                ' title="取消待删除：规则与历史版本从未被改动">恢复</button>'
+            : '<button class="mini-btn danger" data-ta="del-shared" data-pid="' + esc(p.id) + '"' +
+                ' title="软删除：先进入待删除倒计时，期间任何人都能恢复；到期才真删">删除</button>') +
+        '</div>' +
+      '</div>';
+    }).join('');
+    list.innerHTML =
+      '<div class="tpl-head"><span class="grow">共享项目 · 本实例所有人可读</span></div>' +
+      (rows ? '<div class="tpl-grid">' + rows + '</div>'
+        : '<div class="tpl-note">还没有共享项目。把私有项目分享出去（Mock 模式项目卡上的「分享」）后会出现在这里。</div>') +
+      '<div class="tpl-note">共享项目是<b>只读模板</b>：不会直接命中，改名也随分享覆盖时才生效。要用先复制到私有项目，改完再分享回去。' +
+        '<br>删除是<b>软删除</b>：先进入待删除倒计时，规则与历史原样保留，期间可随时「恢复」；到期无人恢复才真删。</div>';
+  } else {
+    const cards = mine.map((p) => {
+      const off = p.enabled === false;
+      return '<div class="tpl-item" data-ta="open" data-pid="' + esc(p.id) + '"' +
+        ' title="' + esc(p.id) + ' · 创建于 ' + fmtTime(p.createdAt) + '">' +
+        '<div class="ttl">' +
+          '<span class="nm' + (off ? ' off' : '') + '">' + esc(p.name) + '</span>' +
+          (off ? '<span class="ro">已停用</span>' : '') +
+        '</div>' +
+        '<div class="foot">' +
+          '<span class="meta">' + (Number(p.ruleCount) || 0) + ' 条</span>' +
+          '<button class="mini-btn" data-ta="rename" data-pid="' + esc(p.id) + '" title="重命名私有项目">重命名</button>' +
+          // 停用/启用与删除都在卡上：项目列表是唯一能一眼看全所有项目的地方，
+          // 不该为了关一个项目再点进 Mock 工作台。两个动作都要过二次确认
+          '<button class="mini-btn" data-ta="toggle" data-pid="' + esc(p.id) + '"' +
+            ' title="' + (off ? '启用整组：规则恢复按各自的开关命中' : '停用整组：规则保留，但一条都不命中') + '">' +
+            (off ? '启用' : '停用') + '</button>' +
+          '<button class="mini-btn danger" data-ta="del-private" data-pid="' + esc(p.id) + '"' +
+            ' title="删除项目：立刻删除并连带删除项目内规则，没有回收站">删除</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    // 新建入口固定是网格的最后一项，只用「+」表示（文字说明走 title / aria-label）
+    const newTile = '<button class="tpl-item tpl-new" data-ta="new" type="button"' +
+      ' title="新建一个私有项目（规则必须先归属一个项目）" aria-label="新建私有项目">+</button>';
+    list.innerHTML =
+      '<div class="tpl-head"><span class="grow">私有项目 · 只有这台设备的登录空间可读写</span></div>' +
+      '<div class="tpl-grid">' + cards + newTile + '</div>' +
+      (mine.length ? '' : '<div class="tpl-note">还没有私有项目。规则必须归属某个私有项目才会命中——点网格里的「+」新建。</div>') +
+      '<div class="tpl-note">点项目进入它的规则列表；重命名只改名字，不影响项目 id、归属和已保存的规则。' +
+        '停用只影响命中（规则本身的开关不改），删除会连带删掉项目内规则且没有回收站——两个动作都先弹确认框。</div>';
+  }
+
+  list.querySelectorAll('[data-ta]').forEach((n) => {
+    n.onclick = (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      const act = n.dataset.ta;
+      const id = n.dataset.pid;
+      if (act === 'open') { selectProject(id); setMode('mock'); return; }
+      if (act === 'open-shared') { void openSharedPanel(id); return; }
+      if (act === 'new') { void promptNewProject(); return; }
+      if (act === 'del-shared') { askDeleteProject('shared', id); return; }
+      if (act === 'del-private') { askDeleteProject('private', id); return; }
+      if (act === 'toggle') { askToggleProject(id); return; }
+      if (act === 'restore') { void restoreSharedProject(id); return; }
+      if (act === 'rename') {
+        const p = projectById(state.projects, id);
+        if (!p) return;
+        const name = window.prompt('重命名私有项目', p.name);
+        if (name !== null) void renameProject(id, name);
+      }
+    };
+  });
+  tabs.querySelectorAll('.tpl-tab').forEach((b) => {
+    b.onclick = () => {
+      // 切 tab = 离开当前详情：合上共享预览，避免「点了私有 tab 还停在共享详情」的错位；
+      // 顺手关掉可能还开着的确认框，别让上一个视图的确认悬在新视图上
+      state.sharedId = null; state.versions = []; state.versionDetail = null; state.sharedRules = [];
+      closeConfirm();
+      state.tplTab = b.dataset.ttab === 'shared' ? 'shared' : 'private';
+      try { localStorage.setItem('ec_tpl_tab', state.tplTab); } catch (e) {}
+      renderTpl();
+    };
+  });
+}
+
+function selectProject(id) {
+  state.projectId = id;
+  // 从模板模式点进私有项目时合上共享详情，两边的选中态不串
+  state.sharedId = null;
+  state.sharedRules = [];
+  state.versions = [];
+  state.versionDetail = null;
+  closeConfirm();
+  try { localStorage.setItem('ec_project', id || ''); } catch (e) {}
+  syncScopedRules();
+  // 换项目不清草稿：那是用户敲进去的东西。草稿自带 projectId，切过去后编辑器顶部
+  // 仍如实显示它要写进哪个项目，保存照常有效
+  renderMockList(); renderMockEditor();
+}
+
+function promptNewProject() {
+  const name = window.prompt('新建私有项目：给它起个名字（例如「登录联调」）', '');
+  if (name === null) return;
+  void createProject(name);
+}
+
+/**
+ * Mock 模式顶部的项目横滑栏：把**全部**私有项目摊成一行卡片。
+ *
+ * 「模块」在数据模型里就是项目（C14 / ADR-033：规则必须挂在私有项目上，
+ * 共享项目是只读模板、不直接命中），所以「切项目」=「切模块」。
+ *
+ * 每张卡三个热区：
+ * - 上行「项目名 + 条数」→ 切到该项目（选中卡浅绿底 + 双层描边）
+ * - 下行「整组开关」→ 二次确认后走 `/groups/:id/enabled`，一键关/开整组。
+ *   关组**不改写**组内规则的 enabled（ADR-030），所以重开即恢复原状。
+ * - 下行「删」→ 二次确认后删除项目；私有项目立刻级联删规则，没有回收站
+ *   （共享项目是软删除 + 倒计时恢复，但共享项目不在这条栏里，走模板模式）
+ *
+ * 计数用 `state.allRules` 而不是当前视图的 `state.rules`——否则切到某个项目后，
+ * 其它卡上的条数会全变成 0，看起来像「那些项目空了」。
+ */
+function renderMockProjBar() {
+  const el = $('mock-projbar');
+  if (!el) return;
+  // 脏数据兜底（AGENTS.md §4）：这两份都可能被写坏，`null.length` 会直接把整条栏搞没
+  const allRules = Array.isArray(state.allRules) ? state.allRules : [];
+  const mine = privateProjects(state.projects);
+  const cur = state.projectId;
+  const atAll = !cur || cur === ALL_PROJECTS;
+  const cards = [
+    '<div class="mproj-chip' + (atAll ? ' on' : '') + '" data-mp="' + esc(ALL_PROJECTS) + '">' +
+      '<button class="mproj-pick" type="button" aria-pressed="' + (atAll ? 'true' : 'false') + '"' +
+        ' title="不按项目过滤：列出全部私有项目的规则">' +
+        '<span class="nm">全部</span><span class="n">' + allRules.length + '</span></button>' +
+      // 聚合视图没有「整组」可言，不放假开关；这里放项目数，顺便和别的卡等高
+      '<span class="mproj-meta">' + mine.length + ' 个项目</span>' +
+    '</div>',
+  ];
+  mine.forEach((p) => {
+    const n = rulesOfProject(allRules, p.id).length;
+    const off = p.enabled === false;
+    const sel = cur === p.id;
+    cards.push('<div class="mproj-chip' + (sel ? ' on' : '') + (off ? ' off' : '') + '"' +
+      ' data-mp="' + esc(p.id) + '">' +
+      '<button class="mproj-pick" type="button" aria-pressed="' + (sel ? 'true' : 'false') + '"' +
+        ' title="' + esc(p.name + ' · ' + n + ' 条' + (sel ? '（当前项目）' : '（点一下切到这个项目）')) + '">' +
+        '<span class="nm">' + esc(p.name) + '</span>' +
+        '<span class="n">' + n + '</span></button>' +
+      '<div class="mproj-row2">' +
+        '<button class="mproj-sw" type="button" role="switch" data-mpsw="' + esc(p.id) + '"' +
+          ' aria-checked="' + (!off) + '"' +
+          ' title="' + esc(off
+            ? '整组停用中：项目内 ' + n + ' 条一条都不命中。点一下打开整组（规则各自的开关不改）'
+            : '点一下关闭整组：项目内 ' + n + ' 条全部不命中（规则各自的开关不改，重开即恢复）') + '">' +
+          '<span class="trk" aria-hidden="true"></span>' +
+          '<span class="swl">' + (off ? '已停用' : '生效中') + '</span></button>' +
+        // 删除挂在这张卡上：不必先点进项目再找编辑器里的「删除项目」。
+        // 私有项目没有回收站，点开仍要过二次确认（askDeleteProject）
+        '<button class="mproj-del" type="button" data-mpdel="' + esc(p.id) + '"' +
+          ' title="删除项目：立刻删除，并连带删除项目内 ' + n + ' 条规则（私有项目没有回收站）"' +
+          ' aria-label="删除项目 ' + esc(p.name) + '">删</button>' +
+      '</div>' +
+    '</div>');
+  });
+  // 一个项目都没有时这条栏也得在：`+` 是「先去建一个」的入口，否则空状态只剩一句提示
+  cards.push('<button class="mproj-add" type="button" data-mp="__new__" title="新建私有项目">' +
+    '<span class="plus" aria-hidden="true">+</span><span>新建</span></button>');
+  el.innerHTML = cards.join('');
+
+  el.querySelectorAll('[data-mp]').forEach((b) => {
+    // 卡片本身也挂着 data-mp：点卡片空白处同样切项目；点开关时由它自己 stopPropagation
+    b.onclick = () => {
+      if (b.dataset.mp === '__new__') { promptNewProject(); return; }
+      selectProject(b.dataset.mp);
+    };
+  });
+  // 整组开关 / 删除：都先弹二次确认，确认后才发请求；
+  // 两个按钮都要 stopPropagation，否则会连带触发卡片的「切项目」
+  el.querySelectorAll('[data-mpsw]').forEach((b) => {
+    b.onclick = (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      askToggleProject(b.dataset.mpsw);
+    };
+  });
+  el.querySelectorAll('[data-mpdel]').forEach((b) => {
+    b.onclick = (ev) => {
+      if (ev && ev.stopPropagation) ev.stopPropagation();
+      askDeleteProject('private', b.dataset.mpdel);
+    };
+  });
+
+  // 选中项滚进可视区。不用 scrollIntoView：它会连带滚动祖先容器，
+  // 从别的模式切回 Mock 时整页会跳一下；这里只算自己这一条需要的 scrollLeft。
+  // 只滚「差的那一点」（不居中）：窄侧栏里居中会把左右两张卡同时切掉半截，
+  // 看起来像整条栏被裁坏了，也丢掉了「上一个是哪个项目」这个上下文。
+  const on = el.querySelector('.mproj-chip.on');
+  if (on && el.clientWidth) {
+    const left = on.offsetLeft;
+    const right = left + on.offsetWidth;
+    if (left < el.scrollLeft) el.scrollLeft = left - 10;
+    else if (right > el.scrollLeft + el.clientWidth) el.scrollLeft = right - el.clientWidth + 10;
+  }
+
+  // 桌面鼠标只有竖向滚轮：不接管的话这条栏只能靠拖滚动条才能看到后面的项目。
+  // 触控板的横向滑动（deltaX 主导）交给浏览器原生处理，避免抢掉。
+  el.onwheel = (ev) => {
+    if (el.scrollWidth <= el.clientWidth) return;
+    if (Math.abs(ev.deltaY) <= Math.abs(ev.deltaX)) return;
+    el.scrollLeft += ev.deltaY;
+    ev.preventDefault();
+  };
+}
+
+function renderMockList() {
+  const el = $('mock-list');
+  if (!el) return;
+  // 必须放在下面那个 `if (!total) return` 之前：一个项目 0 条规则是最常见的状态，
+  // 放后面的话栏会跟着空状态一起消失，正好在最需要切项目的时候没了。
+  renderMockProjBar();
+  // 草稿 = 还没写进服务端的那条。正常路径下「Mock 此接口」会**自动落库**，
+  // 只有自动保存失败（没可写项目 / 服务端 400 / 断网）才留下草稿——照样列出来，
+  // 否则切到 Mock 模式后左边列表是空的，让人以为根本没建成功。
+  const draft = state.mockDraft && !state.allRules.some((r) => r && r.id === state.mockDraft.id)
+    ? state.mockDraft : null;
+  const total = state.rules.length + (draft ? 1 : 0);
+  const view = state.projectId === ALL_PROJECTS ? '全部私有项目' : projectNameOf(state.projects, state.projectId);
+  // 当前项目整组停用时，条数旁边必须直说：规则自己还开着、列表里也还在，
+  // 但一条都不会命中——不写这一句，看到「3 条」会以为在生效
+  const curProj = projectById(state.projects, state.projectId);
+  const viewOff = curProj && curProj.enabled === false ? '（整组停用，不命中）' : '';
+  $('mock-count').textContent = (total ? '· ' + total + ' 条 · ' : '· ') + view + viewOff;
+  if (!total) {
+    el.innerHTML = '<div class="empty">还没有 mock 接口' +
+      '<div class="hint" style="margin-top:6px">浏览模式在记录上点「Mock」，<br>返回值会直接带过来</div></div>';
+    return;
+  }
+  // 草稿项不带开/关/×：它对服务端还不存在，别让按钮去打不存在的规则；丢弃草稿走编辑器里的按钮
+  const draftItem = !draft ? '' :
+    '<div class="mock-item active" data-id="' + esc(draft.id) + '"' +
+      ' title="未保存的草稿（自动保存没成功）：改完点「保存并生效」重试">' +
+      '<div class="l1">' +
+        '<span class="m">' + esc(draft.method || 'ANY') + '</span>' +
+        '<span class="p">' + esc(draft.path || '(未填路径)') + '</span>' +
+        '<span class="draft-tag">未保存</span>' +
+      '</div>' +
+      '<div class="l2">' + esc(draft.host || '(任意域名)') + ' · 待保存到「' +
+        esc(projectNameOf(state.projects, draft.projectId)) + '」</div>' +
+    '</div>';
+  el.innerHTML = draftItem + state.rules.map((r) => {
+    const m = isPlainObject(r.match) ? r.match : {};
+    const on = r.enabled !== false;
+    const active = state.mockDraft && state.mockDraft.id === r.id;
+    // 归属一行常驻（C14 / 协议 §5.4）：命中还看「项目是私有 + 项目开着 + 项目属于这台设备的
+    // 用户」，只显示「规则已启用」会让人以为它正在生效——这正是这次翻转最容易被误读的地方
+    const proj = projectById(state.projects, r.groupId);
+    const projOff = proj && proj.enabled === false;
+    const projLabel = projectNameOf(state.projects, r.groupId);
+    return '<div class="mock-item' + (active ? ' active' : '') + '" data-id="' + esc(r.id) + '"' +
+      ' title="' + esc((m.method || 'ANY') + ' ' + (m.path || '(任意路径)')) + '">' +
+      '<div class="l1">' +
+        '<span class="m">' + esc(m.method || 'ANY') + '</span>' +
+        '<span class="p">' + esc(m.path || '(任意路径)') + '</span>' +
+        // 开/关与删除直接在列表项上做：不必先点进编辑器（走单条接口，ADR-019）
+        '<button class="tg' + (on ? ' on' : '') + '" data-toggle="' + esc(r.id) + '"' +
+          ' title="' + (on ? '点击停用：规则保留，但不再命中' : '点击启用该规则') + '">' +
+          (on ? '开' : '关') + '</button>' +
+        '<button class="rm" data-rm="' + esc(r.id) + '" title="删除该 mock 接口">×</button>' +
+      '</div>' +
+      '<div class="l2">' + esc(m.host || '(任意域名)') + ' · ' + scopeLabel(m) + respLabel(r) + '</div>' +
+      '<div class="l2 proj">' + (projOff ? '⊘ 项目：' : '· 项目：') + esc(projLabel) +
+        (projOff ? '（项目已停用 → 不命中）' : '') + '</div>' +
+    '</div>';
+  }).join('');
+  el.querySelectorAll('.mock-item').forEach((n) => {
+    n.onclick = () => {
+      // 草稿项（服务端还没有）点一下只是回到编辑器；已保存的走 selectMock
+      if (state.rules.some((r) => r.id === n.dataset.id)) selectMock(n.dataset.id);
+      else renderMockEditor();
+    };
+  });
+  el.querySelectorAll('button[data-toggle]').forEach((n) => {
+    n.onclick = (ev) => { ev.stopPropagation(); void toggleRule(n.dataset.toggle); };
+  });
+  el.querySelectorAll('button[data-rm]').forEach((n) => {
+    n.onclick = (ev) => { ev.stopPropagation(); void removeRule(n.dataset.rm); };
+  });
+}
+
+// 列表里直接开/关一条规则：走 POST /rules/:id/enabled，只动这一条。
+// 服务端是唯一真值来源 —— 成功后整份拉回来重画，不在本地猜状态。
+async function toggleRule(id) {
+  const r = state.allRules.find((x) => x && x.id === id);
+  if (!r) return;
+  const next = r.enabled === false;   // 当前是关 → 打开
+  const res = await apiFetch('/__ec/api/rules/' + encodeURIComponent(id) + '/enabled', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled: next }),
+  });
+  if (!res.ok) {
+    toast('切换失败：' + (await apiErrText(res)));
+    return;
+  }
+  await loadRules();
+  // 编辑器正开着这条：同步勾选框，否则界面上「列表说开、编辑器说关」
+  if (state.mockDraft && state.mockDraft.id === id) { state.mockDraft.enabled = next; renderMockEditor(); }
+  // 命中还要看项目开关（协议 §5.4 的那条 AND）：只说「已启用」会让人以为已经在生效
+  const proj = projectById(state.projects, r.groupId);
+  const offNote = next && proj && proj.enabled === false ? '，但所在项目「' + proj.name + '」已停用，暂不命中' : '';
+  toast((next ? '已启用该 mock 接口' : '已停用该 mock 接口（规则保留）') + offNote);
+}
+
+// 列表里直接删除一条规则：走 DELETE /rules/:id
+async function removeRule(id) {
+  const r = state.allRules.find((x) => x && x.id === id);
+  if (!r) return;
+  const res = await apiFetch('/__ec/api/rules/' + encodeURIComponent(id), { method: 'DELETE' });
+  if (!res.ok) {
+    toast('删除失败：' + (await apiErrText(res)));
+    return;
+  }
+  // 规则少了一条，各项目计数也要跟着变 → 连项目表一起重拉
+  await refreshMockData();
+  clearIgnored(id); // 规则没了，本地记的「忽略」参数一并清掉
+  if (state.mockDraft && state.mockDraft.id === id) { state.mockDraft = null; renderMockEditor(); }
+  toast('已删除');
+}
+
+function selectMock(id) {
+  const r = state.allRules.find((x) => x && x.id === id);
+  if (!r) return;
+  state.mockDraft = ruleToDraft(r);
+  renderMockList(); renderMockEditor();
+}
+
+/** 列表项里的返回值摘要：压成单行，超长交给 CSS 截断 */
+function bodyPreview(body) {
+  const s = String(body == null ? '' : body).replace(/\s+/g, ' ').trim();
+  return s.length > 120 ? s.slice(0, 120) + '…' : s;
+}
+
+/** 返回值列表里的一行：拖动手柄 + 指定圆点 + 状态码 / 类型 / 备注 / 正文预览 + 行内操作 */
+function respRowHTML(item, i, d) {
+  const pinned = d.pick === 'specific' && Number(d.pinIndex) === i;
+  return '<div class="resp-item' + (i === d.sel ? ' active' : '') + '" data-ri="' + i + '" draggable="true"' +
+      ' title="点一下选中并编辑；按住左侧 ⠿ 拖动排序">' +
+    '<span class="drag" title="按住拖动排序">⠿</span>' +
+    '<input type="radio" name="md-pin" data-ri="' + i + '"' + (pinned ? ' checked' : '') +
+      ' title="指定每次都返回这一条">' +
+    '<span class="idx">' + circleNum(i) + '</span>' +
+    '<span class="st">' + esc(String(item.status == null ? '' : item.status)) + '</span>' +
+    '<span class="ct">' + esc(item.contentType || '') + '</span>' +
+    '<span class="nm">' + esc(item.name || '') + '</span>' +
+    '<span class="pv">' + esc(bodyPreview(item.body)) + '</span>' +
+    '<span class="racts">' +
+      '<button type="button" data-act="up-resp" data-ri="' + i + '" title="上移">↑</button>' +
+      '<button type="button" data-act="down-resp" data-ri="' + i + '" title="下移">↓</button>' +
+      '<button type="button" data-act="dup-resp" data-ri="' + i + '" title="复制这一条">复制</button>' +
+      '<button type="button" class="rm" data-act="del-resp" data-ri="' + i + '" title="删除这一条">×</button>' +
+    '</span>' +
+  '</div>';
+}
+
+/**
+ * 匹配条件摘要（method · host · path）：**只读一行**。
+ *
+ * 这三项是「这条接口」的身份，草稿由记录带过来（`draftFromRecord()`），存回规则时也只是
+ * 原样写进 `match`。允许在编辑器里改，就会出现「规则匹配的接口和它 mock 的那条记录不是同一个」
+ * ——浏览页的「Mock 此接口」按 method + host + path 找已有规则（`findRuleForRecord()`），
+ * 改了路径它照样查不到，于是同一接口可以 mock 出好几条互相遮蔽的规则（还都是静默的）。
+ * 要通配 / 正则等高级匹配，走「规则（JSON）」抽屉 —— 那是刻意的唯一手写入口。
+ *
+ * ADR-026 锁的是「不可编辑」，不是「必须长成输入框」：原先三个 `readonly` 输入框实际没人去填，
+ * 只占掉三行、还一直在暗示「这里可以改」。压成一行只读文本后信息一条不少——`host` 仍然显式可见
+ * （ADR-016 记的「host 必须带端口」那个坑照旧看得见），值也照样可以选中复制。
+ *
+ * 空值显示「任意方法 / 任意域名 / 任意路径」：存量规则允许不带 method / host（通配），
+ * `draftToRule()` 依旧「为空就不写该字段」，协议语义不变。
+ */
+function matchLine(d) {
+  const val = (v) => (v == null ? '' : String(v)).trim();
+  const part = (v, empty) => (v ? esc(v) : '<span class="none">' + empty + '</span>');
+  return '<div class="match-line" title="匹配条件由记录带过来、不可修改；' +
+      '需要 glob / re: 通配请在右上角「规则」里编辑 JSON">' +
+    part(val(d.method), '任意方法') + '<span class="sep">·</span>' +
+    part(val(d.host), '任意域名') + '<span class="sep">·</span>' +
+    part(val(d.path), '任意路径') +
+    '</div>';
+}
+
+/** 项目归属文案：私有 = 我的；共享 = 发布人（服务端已脱敏，迁移来的可能是 null → 如实说未知） */
+function projectOwnerLabel(p) {
+  if (!p) return '归属未知';
+  if (p.scope === 'shared') {
+    if (!p.createdBy) return '发布人未知（迁移来的历史项目）';
+    const me = state.user && state.user.phone;
+    // 服务端只在我的手机号上回明文，别人的一律打码 —— 所以「等于我的号」就是我自己分享的，
+    // 说「可能是他人空间」会让人怀疑自己的项目，反过来也不能对着打码的号猜是谁
+    if (me && p.createdBy === me) return '发布人：你（本空间分享出去的，改它请用私有副本再「分享」覆盖）';
+    return '发布人 ' + p.createdBy + '（他人空间 · 你只能复制，改不到它）';
+  }
+  return '我的私有项目';
+}
+
+/** 只读规则表（共享项目 / 历史版本共用）：把每条接口的身份与返回条数摊开 */
+function readOnlyRuleTable(rules) {
+  const list = Array.isArray(rules) ? rules : [];
+  if (!list.length) return '<div class="hint">（这个项目里没有规则）</div>';
+  return '<table class="tbl"><tbody>' + list.map((r) => {
+    if (!r || typeof r !== 'object') return '<tr><td class="hint">（脏条目，已忽略）</td></tr>';
+    const m = isPlainObject(r.match) ? r.match : {};
+    const act = isPlainObject(r.action) ? r.action : {};
+    const n = Array.isArray(act.responses) ? act.responses.length : (isPlainObject(act.response) ? 1 : 0);
+    return '<tr>' +
+      '<td>' + esc(String(m.method || 'ANY')) + '</td>' +
+      '<td>' + esc(String(m.host || '(任意域名)')) + '</td>' +
+      '<td>' + esc(String(m.path || '(任意路径)')) + '</td>' +
+      '<td class="hint">' + (r.enabled === false ? '关' : '开') + ' · 优先级 ' + esc(String(r.priority == null ? 0 : r.priority)) +
+        ' · ' + n + ' 条返回值</td>' +
+      '<td class="hint">' + esc(String(r.name || '')) + '</td>' +
+      '</tr>';
+  }).join('') + '</tbody></table>';
+}
+
+/** 版本历史的一行：类型 / 服务端时间 / 脱敏操作人 / 条数 + 预览与回退 */
+function historyRowHTML(p, v) {
+  const opLabel = { publish: '首次发布', share: '覆盖分享', rollback: '回退' }[v.operation] || String(v.operation || '未知');
+  const cur = p && p.currentVersionId === v.id;
+  return '<div class="hist-item">' +
+    '<span class="op">' + esc(opLabel) + '</span>' +
+    '<span class="meta">' + esc(fmtTime(v.createdAt)) + ' · ' + esc(v.actorPhone || '操作人未知') +
+      ' · ' + (Number(v.ruleCount) || 0) + ' 条' + (cur ? ' · <b>当前内容</b>' : '') +
+      (v.rollbackOf ? ' · 回退自 ' + esc(String(v.rollbackOf)) : '') + '</span>' +
+    '<button class="mini-btn" data-ta="preview" data-pid="' + esc(p ? p.id : '') + '" data-vid="' + esc(v.id) + '">预览</button>' +
+    (cur ? '' : '<button class="mini-btn" data-ta="rollback" data-pid="' + esc(p ? p.id : '') + '" data-vid="' + esc(v.id) + '"' +
+      ' title="把共享项目整批替换成这一版，并追加一条 rollback 历史（旧记录不删）">回退到这里</button>') +
+    '</div>';
+}
+
+/**
+ * 共享项目面板的动作区。
+ *
+ * 删除走统一的二次确认弹框（`askDeleteProject('shared', id)`），不再在本区域里切成确认态；
+ * 待删除的项目把「删除」换成「恢复」——这时唯一该做的动作是撤销，不是继续往里写。
+ */
+function sharedActsHTML(p, pending) {
+  return '<div class="sc-acts">' +
+    '<button' + (pending ? '' : ' class="primary"') + ' data-ta="copy" data-pid="' + esc(p.id) + '"' +
+      (state.busy ? ' disabled' : '') +
+      ' title="服务端把内容和规则整份复制成一个新的私有项目，规则会换新 id；源项目一字不动">复制到我的项目</button>' +
+    (pending
+      ? '<button class="primary" data-ta="restore" data-pid="' + esc(p.id) + '"' +
+          ' title="取消待删除状态：规则与历史版本从未被改动，恢复即恢复原状">恢复（撤销删除）</button>'
+      : '<button data-ta="archive" data-pid="' + esc(p.id) + '">' + (p.archived ? '取消归档' : '归档') + '</button>' +
+        '<button class="danger" data-ta="del-shared" data-pid="' + esc(p.id) + '"' +
+          ' title="先进入待删除倒计时，期间任何人可恢复；到期才真删">删除</button>') +
+    '<button data-ta="close-shared">关闭</button>' +
+  '</div>';
+}
+
+/** 共享项目只读面板：内容 + 历史 + copy / rollback / archive / 删除（软删除） */
+function sharedPanelHTML() {
+  const p = projectById(state.projects, state.sharedId);
+  if (!p) return '<div class="empty">这个共享项目已经不在了</div>';
+  const versions = Array.isArray(state.versions) ? state.versions : [];
+  const vd = state.versionDetail;
+  const pending = typeof p.purgeAt === 'number';
+  return '<div class="card scope-card' + (pending ? ' confirm-card' : '') + '">' +
+      '<div class="sc-main">' +
+        '<div class="sc-title">' + esc(p.name) + ' <span class="tag">共享 · 只读</span>' +
+          (pending ? '<span class="ro warn">待删除</span>' : (p.archived ? '<span class="ro">已归档</span>' : '')) + '</div>' +
+        '<div class="sc-sub">' + esc(projectOwnerLabel(p)) + ' · ' + (Number(p.ruleCount) || 0) + ' 条规则 · 历史 ' +
+          versions.length + ' 版 · 当前版本 ' + esc(p.currentVersionId || '（未发布过）') + '</div>' +
+        (pending
+          ? '<div class="sc-sub">⏳ <b>待删除</b>：' + esc(fmtTime(p.purgeAt)) + '（还剩 ' + daysLeft(p.purgeAt) +
+            ' 天）自动真删。这期间规则与历史版本一条都没动，点「恢复」即可撤销。</div>'
+          : '<div class="sc-sub">⚠️ 共享项目<b>不参与命中</b>：设备绑定的私有项目里那条规则才会返回 mock。' +
+            '要用它请先「复制到我的项目」。</div>') +
+      '</div>' +
+      sharedActsHTML(p, pending) +
+    '</div>' +
+    '<div class="sec"><div class="sec-head"><span class="t">当前内容（只读）</span><span class="n">' +
+      state.sharedRules.length + ' 条</span></div>' + readOnlyRuleTable(state.sharedRules) + '</div>' +
+    '<div class="sec"><div class="sec-head"><span class="t">历史版本</span><span class="n">' + versions.length +
+      ' 版 · 默认全部保留</span></div>' +
+      (versions.length ? versions.map((v) => historyRowHTML(p, v)).join('')
+        : '<div class="hint">还没有历史版本（这个项目不是通过分享产生的）。</div>') +
+      '<div class="hint" style="margin-top:6px">每一次分享 / 回退都追加一条不可变快照。' +
+        '旧版本会长期保留当时那些返回 body（可能是 token / cookie / 个人数据），所以分享前请先自查。</div>' +
+    '</div>' +
+    (vd ? '<div class="sec"><div class="sec-head"><span class="t">版本预览 · ' + esc(vd.version.id) + '</span>' +
+      '<span class="n">' + (Array.isArray(vd.rules) ? vd.rules.length : 0) + ' 条（只读）</span></div>' +
+      '<div class="hint">' + esc({ publish: '首次发布', share: '覆盖分享', rollback: '回退' }[vd.version.operation] || String(vd.version.operation || '')) +
+      ' · ' + esc(fmtTime(vd.version.createdAt)) + ' · ' + esc(vd.version.actorPhone || '操作人未知') + '</div>' +
+      readOnlyRuleTable(vd.rules) + '</div>' : '');
+}
+
+/** 私有项目卡：现在写的是哪个项目、它会不会命中、能对它做什么 */
+function projectCardHTML() {
+  const mine = privateProjects(state.projects);
+  const p = projectById(state.projects, state.projectId);
+  if (!p || state.projectId === ALL_PROJECTS) {
+    const target = writableProjectId();
+    return '<div class="card scope-card"><div class="sc-main">' +
+      '<div class="sc-title">全部私有规则</div>' +
+      '<div class="sc-sub">' + mine.length + ' 个私有项目 · ' + state.allRules.length + ' 条规则' +
+      (target ? ' · 新建的规则写进：' + esc(projectNameOf(state.projects, target)) : '') + '</div>' +
+      (mine.length ? '' : '<div class="sc-sub">⚠️ 还没有私有项目：保存第一条规则时会自动创建「默认项目」。</div>') +
+      '</div><div class="sc-acts"><button data-pa="new">+ 新建项目</button></div></div>';
+  }
+  const off = p.enabled === false;
+  const origin = p.originSharedProjectId ? projectById(state.projects, p.originSharedProjectId) : null;
+  const inside = rulesOfProject(state.allRules, p.id).length;
+  // 开启/停用与删除都走统一的确认弹框（`askToggleProject` / `askDeleteProject`）：
+  // 这里只渲染按钮，不再把卡片切成「确认删除」态——同一个动作在两处长得不一样最难理解
+  return '<div class="card scope-card"><div class="sc-main">' +
+      '<div class="sc-title">' + esc(p.name) + ' <span class="tag">私有</span></div>' +
+      '<div class="sc-sub">' + (off
+        ? '⊘ <b>整组已停用</b>：这 ' + inside + ' 条规则一条都不会命中（规则本身还在）'
+        : '整组启用中 · ' + inside + ' 条规则') +
+        ' · ' + esc(projectOwnerLabel(p)) + ' · 创建于 ' + esc(fmtTime(p.createdAt)) +
+        (p.copiedFromVersionId ? ' · 复制自版本 ' + esc(p.copiedFromVersionId) : '') + '</div>' +
+      '<div class="sc-sub">' + (origin
+        ? '来源共享项目：「' + esc(origin.name) + '」——「分享」是<b>整项目覆盖</b>它，不是增量合并'
+        : '还没有分享到共享库：「分享」会发布成一份新的共享项目（他人复制后才会用到）') + '</div>' +
+    '</div>' +
+    '<div class="sc-acts">' +
+      '<button data-pa="ptoggle" data-pid="' + esc(p.id) + '">' + (off ? '启用项目' : '停用项目') + '</button>' +
+      '<button data-pa="rename" data-pid="' + esc(p.id) + '">重命名</button>' +
+      '<button class="primary" data-pa="share" data-pid="' + esc(p.id) + '"' + (state.busy ? ' disabled' : '') + '>' +
+        (origin ? '覆盖到共享项目' : '分享为共享项目') + '</button>' +
+      '<button class="danger" data-pa="del-project" data-pid="' + esc(p.id) + '">删除项目</button>' +
+    '</div></div>';
+}
+
+/**
+ * 编辑器里的「归属项目」一行：**只有已落库的规则**显示，且只读。
+ * `PUT /rules/:id` 明确拒绝换项目（400 EC_SCOPE_MISMATCH）。
+ * 未落库的草稿不再显示归属行：保存时自动归到当前项目（saveDraft 里的归属闸），
+ * Mock 模式是纯私有工作台，不该让人在保存前选项目。
+ */
+function ownerRowHTML(d) {
+  const p = projectById(state.projects, d.projectId);
+  return '<div class="sec" style="margin-top:10px"><div class="grid3" style="margin-top:0">' +
+    '<label>归属项目</label><span class="hint">' + esc(projectNameOf(state.projects, d.projectId)) +
+    (p && p.enabled === false ? ' · ⊘ 项目已停用，这条现在不会命中' : '') + '</span></div>' +
+    '<div class="hint" style="margin-top:4px">已保存的规则不能换项目（服务端会 400）；要挪走请在项目卡上删除后在新项目重建。</div></div>';
+}
+
+function renderMockEditor() {
+  const el = $('mock-editor');
+  if (!el) return;
+  const head = projectCardHTML();
+  const d = state.mockDraft;
+  if (!d) {
+    el.innerHTML = head + '<div class="empty">选择左侧一条 mock 接口编辑；还没有的话，在浏览模式的记录上点「Mock」</div>';
+    return;
+  }
+
+  const idx = d.params.map((p, i) => ({ p, i }));
+  const bizChips = idx.filter((x) => !isCommonParam(x.p.k));
+  const commonChips = idx.filter((x) => isCommonParam(x.p.k));
+  const onCount = d.params.filter((p) => p.on).length;
+  // 每个参数 = 一块「匹配/忽略 键 = 值」，全部排在一行（放不下自动换行）
+  // 状态用可点的小胶囊切换，不再提供删除 —— 不要的参数切到「忽略」即可（保存时会跳过）
+  const chip = (x) =>
+    '<span class="pchip' + (x.p.on ? ' on' : '') + '">' +
+      '<span class="pp-st' + (x.p.on ? ' on' : '') + '" data-i="' + x.i + '"' +
+        ' title="点击切换：匹配 = 参与入参校验；忽略 = 只展示不校验">' + (x.p.on ? '匹配' : '忽略') + '</span>' +
+      '<input type="text" class="pp-k" data-i="' + x.i + '" value="' + esc(x.p.k) + '" placeholder="参数名">' +
+      '<span class="eq">=</span>' +
+      '<input type="text" class="pp-v" data-i="' + x.i + '" value="' + esc(x.p.v) + '" placeholder="任意值">' +
+    '</span>';
+  const chipRow = (chips, emptyText, withAdd) =>
+    '<div class="params-row">' +
+      (chips.length ? chips.map(chip).join('') : (emptyText ? '<span class="hint">' + emptyText + '</span>' : '')) +
+      (withAdd ? '<span class="pchip add" data-act="add-param">+ 添加参数</span>' : '') +
+    '</div>';
+
+  const inRules = state.rules.some((r) => r.id === d.id);
+  // 多返回值：列表 + 当前选中条目的编辑区（sel / pinIndex 由 curResp 夹回合法范围）
+  const rs = respList(d);
+  const cur = curResp(d);
+  const pinIndex = Math.min(Math.max(Math.trunc(Number(d.pinIndex) || 0), 0), rs.length - 1);
+
+  el.innerHTML = head +
+    '<div class="card">' +
+      '<div class="status-line">' +
+        '<span class="tag">' + esc(d.method || 'ANY') + '</span>' +
+        '<span class="url" style="font-size:14px">' + esc(d.path || '(未填路径)') + '</span>' +
+        '<label class="hint" style="margin-left:auto;display:flex;align-items:center;gap:6px;cursor:pointer">' +
+          '<input type="checkbox" id="md-enabled"' + (d.enabled ? ' checked' : '') + '> 启用' +
+        '</label>' +
+      '</div>' +
+      '<div class="note">命中该规则的请求会直接返回下方返回值，<b>不再转发到真实服务器</b>；' +
+        '规则对本<b>项目</b>里已绑定这台设备的用户生效（协议 §5.4）。</div>' +
+      (inRules ? ownerRowHTML(d) : '') +
+
+      '<div class="sec">' +
+        '<div class="sec-head"><span class="t">匹配条件</span><span class="n">来自记录 · 只读</span></div>' +
+        matchLine(d) +
+        '<div class="hint" style="margin-top:6px">这三项是这条接口的身份，由记录带过来、' +
+          '<b>不可修改</b>：改了就不再是同一个接口，列表里会多出两条对不上的规则。' +
+          '需要 glob / <code>re:</code> 通配等高级匹配，请在右上角「规则」里编辑 JSON。</div>' +
+      '</div>' +
+
+      '<div class="sec">' +
+        '<div class="sec-head"><span class="t">入参匹配</span>' +
+          '<span class="sh-acts">' +
+            '<button type="button" data-act="params-all" title="所有参数都设为「匹配」">全匹配</button>' +
+            '<button type="button" data-act="params-none" title="所有参数都设为「忽略」（等价于只按域名 + 路径匹配）">全不匹配</button>' +
+          '</span>' +
+          '<span class="n" id="md-param-count">' + onCount + ' / ' + d.params.length + ' 项参与</span></div>' +
+        '<div class="hint" style="margin-bottom:6px">默认<b>域名 + 路径 + 入参</b>都匹配；' +
+          '不需要的参数切到「忽略」即可（不写进规则，但会在本机记住、下次打开仍展示）。</div>' +
+        chipRow(bizChips, '（无业务参数）', true) +
+        (commonChips.length
+          ? '<details class="fold"><summary>公共参数 (' + commonChips.length + ')</summary>' +
+            '<div class="fold-inner">' + chipRow(commonChips, '', false) +
+            '<div class="hint" style="margin-top:6px">timestamp / noncestr / sign 等每次都在变，默认不参与匹配</div>' +
+            '</div></details>'
+          : '') +
+      '</div>' +
+
+      '<div class="sec">' +
+        '<div class="sec-head"><span class="t">返回值</span>' +
+          '<span class="n">' + rs.length + ' 条</span>' +
+          '<span class="sh-acts">' +
+            (d.source ? '<button type="button" data-act="append-resp"' +
+              ' title="把这条记录的真实响应追加成一条，方便做「成功 + 失败」两条">追加真实响应</button>' : '') +
+            '<button type="button" data-act="add-resp">+ 添加返回值</button>' +
+          '</span>' +
+        '</div>' +
+        '<div class="pick-row">' +
+          '<span class="hint">命中方式</span>' +
+          '<label><input type="radio" name="md-pick" value="specific"' +
+            (d.pick === 'specific' ? ' checked' : '') + '> 指定某一条</label>' +
+          '<label><input type="radio" name="md-pick" value="sequence"' +
+            (SEQ_PICKS.includes(d.pick) ? ' checked' : '') + '> 按顺序</label>' +
+          (SEQ_PICKS.includes(d.pick)
+            ? '<select id="md-seqmode" title="顺序命中走完之后的去向">' +
+                '<option value="in-order"' + (d.pick === 'in-order' ? ' selected' : '') + '>依次返回，走完停在最后一条</option>' +
+                '<option value="loop"' + (d.pick === 'loop' ? ' selected' : '') + '>循环返回</option>' +
+                '<option value="once-then-passthrough"' + (d.pick === 'once-then-passthrough' ? ' selected' : '') +
+                  '>依次返回，走完放行真实服务器</option>' +
+              '</select>'
+            : '') +
+          '<label><input type="radio" name="md-pick" value="random"' +
+            (d.pick === 'random' ? ' checked' : '') + '> 随机</label>' +
+        '</div>' +
+        '<div class="hint" style="margin:0 0 8px">' +
+          (d.pick === 'specific'
+            ? '每次都固定返回第 ' + circleNum(pinIndex) + ' 条（点列表左侧的圆点改指定哪一条）。'
+            : d.pick === 'random'
+              ? '每次请求随机返回一条。'
+              : '序列指针按<b>设备</b>各自独立推进（互不影响）；改序<b>不会</b>重置已推进的位置，' +
+                '需要归零请用顶栏「规则 → 重置序列指针」（全局，影响所有规则）。') +
+        '</div>' +
+        '<div class="resp-list" id="md-resp-list">' +
+          rs.map((item, i) => respRowHTML(item, i, d)).join('') +
+        '</div>' +
+        '<div class="resp-edit">' +
+          '<div class="grid3" style="margin-top:0">' +
+            '<label>状态码</label><input type="text" id="md-resp-status" style="width:80px" placeholder="200"' +
+              ' value="' + esc(String(cur.status == null ? '' : cur.status)) + '">' +
+          '</div>' +
+          '<div class="grid3">' +
+            '<label>Content-Type</label><input type="text" id="md-resp-ct" placeholder="application/json"' +
+              ' value="' + esc(cur.contentType || '') + '">' +
+          '</div>' +
+          '<div class="grid3">' +
+            '<label>本条备注</label><input type="text" id="md-resp-name" placeholder="仅展示用，如 登录成功"' +
+              ' value="' + esc(cur.name || '') + '">' +
+          '</div>' +
+          '<div class="sec-head" style="margin-top:14px">' +
+            '<span class="t">返回值正文 · ' + circleNum(d.sel) + '</span>' +
+            '<span class="sh-acts">' +
+              (d.source ? '<button type="button" data-act="reset-resp">重置为真实值</button>' : '') +
+              '<button type="button" data-act="format-body">格式化 JSON</button>' +
+              '<button type="button" data-act="zoom-body">放大编辑</button>' +
+            '</span>' +
+          '</div>' +
+          '<textarea class="editor-body mock-body-editor" id="md-body" spellcheck="false" placeholder="在这里编辑返回值…">' +
+            esc(String(cur.body == null ? '' : cur.body)) +
+          '</textarea>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="sec">' +
+        '<div class="grid3" style="margin-top:0">' +
+          '<label>规则备注</label><input type="text" id="md-name" value="' + esc(d.name) + '" placeholder="仅展示用">' +
+        '</div>' +
+        '<div class="grid3">' +
+          '<label>优先级</label><input type="text" id="md-priority" value="' + esc(d.priority) + '" style="width:80px" placeholder="10">' +
+        '</div>' +
+        '<div class="hint" style="margin-top:6px">数值越大越先匹配，命中多条时只取最高优先级的一条。' +
+          '按入参精确匹配的规则，优先级要高过「只匹配路径」的规则，否则会被遮蔽。</div>' +
+      '</div>' +
+
+      '<div class="acts">' +
+        '<button class="primary" data-act="save"' +
+          (inRules ? ' title="这条规则已在服务端保存（点「Mock 此接口」时自动存了）；改了返回值或备注再点这里"' : '') +
+          '>保存并生效</button>' +
+        '<button class="danger" data-act="delete" title="' +
+          (inRules ? '删除这条 mock 规则（立即生效）' : '丢弃这条还没保存的草稿') + '">' +
+          (inRules ? '删除' : '丢弃草稿') + '</button>' +
+        '<button data-act="curl">复制为 cURL</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function formatDraftBody() {
+  const d = state.mockDraft;
+  const cur = curResp(d);
+  if (!cur) return;
+  const result = parseJsonValue(cur.body);
+  if (!result.ok) { toast('不是合法 JSON，未格式化'); return; }
+  cur.body = JSON.stringify(result.value, null, 2);
+  renderMockEditor();
+  const ed = $('md-body');
+  if (ed) ed.focus();
+}
+
+/** 「重置为真实值」：把当前选中条目的状态码 / 类型 / 正文换回记录里的真实响应（本条备注保留） */
+function resetDraftResponse() {
+  const d = state.mockDraft;
+  if (!d || !d.source) return;
+  const rec = state.records.find((x) => x.id === d.source);
+  if (!rec) { toast('原始记录已不在当前列表（可能已被清空或服务重启）'); return; }
+  const cur = curResp(d);
+  if (!cur) return;
+  Object.assign(cur, responseFromRecord(rec, cur.name));
+  renderMockEditor();
+  toast('已重置为真实响应');
+}
+
+/** 「追加真实响应」：再补一条来自同一条记录的返回值（做「成功 + 失败」两条时省手敲） */
+function appendRealResponse() {
+  const d = state.mockDraft;
+  if (!d || !d.source) return;
+  const rec = state.records.find((x) => x.id === d.source);
+  if (!rec) { toast('原始记录已不在当前列表（可能已被清空或服务重启）'); return; }
+  const rs = respList(d);
+  rs.push(responseFromRecord(rec, '真实响应 ' + (rs.length + 1)));
+  d.sel = rs.length - 1;
+  normalizePick(d);
+  renderMockEditor();
+  toast('已追加当前真实响应');
+}
+
+/**
+ * 保存一条规则：走**单条接口**（新建 POST /rules、改这一条 PUT /rules/:id），不再整表 PUT。
+ * C14 之后 PUT /rules 的语义是「替换我的**全部**私有规则」——两个窗口各开着不同项目时，
+ * 后保存的那个会把另一个项目的规则整个删掉（ADR-028 那类覆盖事故的归属版）。
+ */
+async function saveDraft() {
+  const d = state.mockDraft;
+  if (!d) return false;
+  // 空 match 会 mock 掉所有请求，必须拦住
+  if (!String(d.path || '').trim() && !String(d.host || '').trim()) {
+    toast('请至少填写域名或路径，否则会 mock 掉全部请求');
+    return false;
+  }
+  // 归属闸（C14）：规则必须属于一个我的私有项目，否则**永不命中**、服务端也直接 400。
+  // 先跟着当前视图补一次；实在没有就自动建一个「默认项目」，建不出来才提示手动新建
+  if (!isWritableProject(projectById(state.projects, d.projectId))) d.projectId = writableProjectId();
+  if (!isWritableProject(projectById(state.projects, d.projectId))) {
+    const created = await ensureDefaultProject();
+    if (created) d.projectId = created;
+  }
+  if (!isWritableProject(projectById(state.projects, d.projectId))) {
+    toast('自动创建默认项目失败：请到「模板」模式手动新建后再保存');
+    return false;
+  }
+  const sourceId = d.source;
+  const keepSel = Math.max(0, Math.trunc(Number(d.sel) || 0));
+  const rule = draftToRule(d);
+  const isNew = !state.allRules.some((r) => r && r.id === rule.id);
+  let res;
+  if (isNew) {
+    // 新建时 id **必须省略**（服务端生成：撞 id 时「改了 A 结果变的是 B」比一句 400 难查）。
+    // 草稿上那个 r_ 只是本地占位，用来在列表里显示这条未保存项
+    const payload = Object.assign({}, rule);
+    delete payload.id;
+    res = await apiFetch('/__ec/api/rules', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ rule: payload }),
+    });
+  } else {
+    res = await apiFetch('/__ec/api/rules/' + encodeURIComponent(rule.id), {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ rule: rule }),
+    });
+  }
+  if (!res.ok) {
+    // 失败：**草稿一个字不动**（用户改的还在编辑区），只把服务端真值拉回来重画左侧
+    toast('保存失败：' + (await apiErrText(res)));
+    await refreshMockData();
+    renderMockEditor();
+    return false;
+  }
+  const data = await res.json().catch(() => ({}));
+  const saved = data.rule || rule;
+  if (saved.id !== d.id) {
+    // 「忽略」参数是本机按规则 id 记的：换了 id 要搬过去，否则下次打开这些参数默默变「匹配」
+    const ignored = loadIgnored(d.id);
+    if (ignored.length) saveIgnored(saved.id, ignored);
+    clearIgnored(d.id);
+  }
+  saveIgnored(saved.id, d.params.filter((p) => !p.on));
+  state.mockDraft = null;
+  await refreshMockData();
+  state.mockDraft = ruleToDraft(saved);
+  // 记录来源跨保存保留：保存后「重置为真实值 / 追加真实响应」仍然可用（否则一点保存按钮就消失了）
+  state.mockDraft.source = sourceId;
+  // 停在保存前正在编辑的那条上（否则每保存一次就跳回第 1 条，多条返回值时很烦）
+  state.mockDraft.sel = keepSel;
+  normalizePick(state.mockDraft);
+  renderMockList(); renderMockEditor();
+  const where = '已保存到「' + projectNameOf(state.projects, saved.groupId) + '」';
+  toast(saved.enabled ? where + '，规则已生效' : where + '，规则未启用');
+  return true;
+}
+
+/**
+ * 命中方式（指定 / 按顺序+子模式 / 随机，以及列表左侧圆点）改动后**立即生效**，
+ * 不再要求用户回到顶部点「保存并生效」——它和列表里的「开 / 关」一样，
+ * 属于「改完就想看效果」的开关式操作。
+ *
+ * 两个刻意的限制：
+ * 1. **只对已落库的规则自动保存**。新草稿连 match 都还没填（保存必然被拦），
+ *    而且用户可能只是随手点一下看看控件；那一步仍然走显式的「保存并生效」。
+ * 2. **不复用 `saveDraft()`**：后者保存后会按落库结果**重建整个草稿**
+ *    （`state.mockDraft = ruleToDraft(...)`），连点几次时会把后一次点击的改动冲掉。
+ *    这里只把 pick/pinIndex 的结果写回该条规则并落库，草稿其它部分原样保留。
+ *
+ * 串行化：连点「指定 → 按顺序 → 随机」会发多次 PUT，串成一条链保证**后发的那次最后落地**
+ * （同一条规则的单条替换是整条覆盖，乱序到达就会被旧的那次盖掉）。
+ */
+let pickSaveChain = Promise.resolve();
+function applyPickChange() {
+  pickSaveChain = pickSaveChain.then(applyPickChangeNow).catch(() => {});
+  return pickSaveChain;
+}
+
+async function applyPickChangeNow() {
+  const d = state.mockDraft;
+  if (!d) return;
+  if (!state.allRules.some((r) => r && r.id === d.id)) return;   // 还没落库的草稿：走显式保存
+  // 与 saveDraft 同一道闸：空 match 会 mock 掉所有请求（存量脏数据也要拦）
+  if (!String(d.path || '').trim() && !String(d.host || '').trim()) {
+    toast('命中方式未生效：请至少填写域名或路径');
+    return;
+  }
+  const rule = draftToRule(d);
+  // 单条 PUT：只动这一条，且**不带别的项目的规则**——整表 PUT 在 C14 是「替换我的全部私有规则」
+  const res = await apiFetch('/__ec/api/rules/' + encodeURIComponent(rule.id), {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ rule: rule }),
+  });
+  if (!res.ok) {
+    toast('命中方式未生效：' + (await apiErrText(res)));
+    await refreshMockData();
+    renderMockEditor();
+    return;
+  }
+  await refreshMockData();
+  renderMockList();
+  toast(rule.enabled ? '命中方式已生效' : '命中方式已保存（规则未启用）');
+}
+
+async function deleteDraft() {
+  const d = state.mockDraft;
+  if (!d) return;
+  // 还没保存过的草稿：本地丢弃即可，服务端没有这条（判断要看**全量**，不是当前项目那几条）
+  if (!state.allRules.some((r) => r && r.id === d.id)) {
+    state.mockDraft = null; renderMockList(); renderMockEditor(); return;
+  }
+  // 已存在的规则：走单条删除接口（与列表里的 × 同一条路径）
+  await removeRule(d.id);
+}
+
+function copyCurl() {
+  const d = state.mockDraft;
+  if (!d) return;
+  const cur = curResp(d);
+  const body = cur ? String(cur.body || '') : '';
+  const contentType = (cur && cur.contentType) || 'application/json';
+  const qs = d.params.filter((p) => p.on && String(p.k || '').trim())
+    .map((p) => encodeURIComponent(p.k) + '=' + encodeURIComponent(p.v)).join('&');
+  const path = d.path || '/';
+  const method = String(d.method || 'GET').toUpperCase();
+  const target = 'https://' + (d.host || 'api.example.com') + path + (qs ? '?' + qs : '');
+  const lines = [
+    "curl -X " + method + " 'http://127.0.0.1:8899/__ec/p" + path + (qs ? '?' + qs : '') + "'",
+    "  -H 'X-EC-Target: " + target + "'",
+    "  -H 'X-EC-Device-Id: dev-001' -H 'X-EC-Session-Id: sess-001'",
+  ];
+  if (method !== 'GET' && method !== 'HEAD') {
+    lines.push("  -H 'content-type: " + contentType + "'");
+    lines.push("  -d '" + body.replace(/'/g, "'\\''") + "'");
+  }
+  copyText(lines.join(' \\\n'), () => toast('已复制 cURL'));
+}
+
+/**
+ * 浏览模式 → Mock 模式：把记录的返回值带过去（id 缺省用当前选中项）。
+ *
+ * **新建时立即落库**：点「Mock 此接口」就等于建好一条启用中的规则（返回值 = 当前真实响应），
+ * 不必再回 Mock 模式点一次「保存并生效」——那一步只是把用户刚做过的动作再确认一遍，
+ * 而且很容易以为「点过 Mock 了就已经生效」，实际请求还在透传（静默失效，最难查）。
+ * 已存在的规则只载入、不写盘（没有任何改动可保存）。
+ *
+ * 落库失败（没有可写项目 / 服务端 400 / 网络断）时草稿原样留在编辑器里，退回旧行为：
+ * 用户改完手动点「保存并生效」，失败原因由 saveDraft() 如实提示，不会被吞掉。
+ */
+let mockFromRecordBusy = false;
+async function mockFromRecord(id) {
+  // 连点两下不能建出两条规则（第一条还在路上时 allRules 里没有它，去重判断会漏）
+  if (mockFromRecordBusy) return;
+  const rec = state.records.find((x) => x.id === (id || state.selected));
+  if (!rec) return;
+  const existing = findRuleForRecord(rec);
+  if (existing) {
+    state.mockDraft = ruleToDraft(existing);
+    // 允许用「重置为真实值」把当前这条记录的响应拉进来
+    state.mockDraft.source = rec.id;
+    setMode('mock');
+    toast('已有相同匹配的规则，已载入；可点「重置为真实值」换成当前响应');
+    return;
+  }
+  state.mockDraft = draftFromRecord(rec);
+  // 新草稿一出生就要有归属：跟着当前分组填上；一个分组都没有时 saveDraft 会自动建
+  // 「默认项目」（归属闸），这里不阻塞用户编辑
+  state.mockDraft.projectId = writableProjectId();
+  setMode('mock');
+  mockFromRecordBusy = true;
+  try {
+    // 成功时 saveDraft() 自己会 toast「已保存到「X」，规则已生效」
+    await saveDraft();
+  } catch (e) {
+    toast('自动保存失败：' + (e && e.message ? e.message : '网络异常') + '；可在编辑器里手动保存');
+  } finally {
+    mockFromRecordBusy = false;
+  }
+}
+
+function bindMockEditor() {
+  const el = $('mock-editor');
+  // 项目卡与共享面板的动作走 data-pa，和规则编辑器的 data-act 分成两套属性：
+  // 同一个容器里两套按钮混用同名属性，「删除项目」就会掉进「删除这条规则」的分支里
+  el.addEventListener('click', (ev) => {
+    const n = ev.target.closest ? ev.target.closest('[data-pa]') : null;
+    if (!n) return;
+    const pa = n.dataset.pa;
+    const id = n.dataset.pid;
+    if (pa === 'ptoggle') { askToggleProject(id); }
+    else if (pa === 'rename') {
+      const p = projectById(state.projects, id);
+      const name = p ? window.prompt('项目改名', p.name) : null;
+      if (name !== null) void renameProject(id, name);
+    }
+    else if (pa === 'del-project') { askDeleteProject('private', id); }
+    else if (pa === 'share') { void sharePrivate(id); }
+    else if (pa === 'new') { promptNewProject(); }
+  });
+  el.addEventListener('input', (ev) => {
+    const d = state.mockDraft;
+    if (!d) return;
+    const t = ev.target;
+    const i = Number(t.dataset ? t.dataset.i : NaN);
+    if (t.classList.contains('pp-k')) { if (d.params[i]) d.params[i].k = t.value; return; }
+    if (t.classList.contains('pp-v')) { if (d.params[i]) d.params[i].v = t.value; return; }
+    if (t.id === 'md-name') d.name = t.value;
+    // 注意：匹配条件（method / host / path）在编辑器里是只读的一行摘要（matchLine），
+    // 根本没有可编辑控件 —— 这里刻意没有分支：草稿的匹配条件只在 draftFromRecord() /
+    // ruleToDraft() 里赋值，不存在第二条写入路径（ADR-026）。
+    else if (t.id === 'md-priority') d.priority = t.value;
+    else if (t.id === 'md-body') { const cur = curResp(d); if (cur) cur.body = t.value; }
+    // 多返回值：编辑的是「当前选中」那一条；列表里的摘要等下次重绘时刷新
+    else if (t.id === 'md-resp-status') { const cur = curResp(d); if (cur) cur.status = t.value; }
+    else if (t.id === 'md-resp-ct') { const cur = curResp(d); if (cur) cur.contentType = t.value; }
+    else if (t.id === 'md-resp-name') { const cur = curResp(d); if (cur) cur.name = t.value; }
+  });
+  el.addEventListener('change', (ev) => {
+    const d = state.mockDraft;
+    if (!d) return;
+    const t = ev.target;
+    if (t.id === 'md-enabled') {
+      d.enabled = t.checked;
+      return;
+    }
+    // 归属项目下拉已撤出 Mock 模式：草稿保存时自动归当前项目（saveDraft 的归属闸）
+    // 命中方式：指定 / 按顺序 / 随机
+    if (t.name === 'md-pick') {
+      if (t.value === 'specific') d.pick = 'specific';
+      else if (t.value === 'random') d.pick = 'random';
+      // 点「按顺序」时保留上次选的顺序子模式；没有则用默认（循环返回）
+      else d.pick = nextSeqPick(d.pick);
+      renderMockEditor();       // 同步重绘：子模式下拉/选中态立刻跟上，不欠一拍
+      void applyPickChange();
+      return;
+    }
+    if (t.id === 'md-seqmode') {
+      d.pick = nextSeqPick(t.value);
+      renderMockEditor();
+      void applyPickChange();
+      return;
+    }
+    // 列表左侧圆点：指定每次都返回这一条（等价于「命中方式 = 指定」）
+    if (t.name === 'md-pin') {
+      d.pick = 'specific';
+      d.pinIndex = Number(t.dataset.ri) || 0;
+      d.sel = d.pinIndex;
+      normalizePick(d);
+      renderMockEditor();
+      void applyPickChange();
+    }
+  });
+  el.addEventListener('click', (ev) => {
+    const d = state.mockDraft;
+    if (!d) return;
+    // 匹配/忽略 状态胶囊：原地切换，不整块重绘（避免丢滚动位置/输入焦点）
+    const st = ev.target.closest('.pp-st');
+    if (st) {
+      const i = Number(st.dataset.i);
+      if (d.params[i]) {
+        d.params[i].on = !d.params[i].on;
+        st.textContent = d.params[i].on ? '匹配' : '忽略';
+        st.classList.toggle('on', d.params[i].on);
+        const chipEl = st.closest('.pchip');
+        if (chipEl) chipEl.classList.toggle('on', d.params[i].on);
+        const n = $('md-param-count');
+        if (n) n.textContent = d.params.filter((p) => p.on).length + ' / ' + d.params.length + ' 项参与';
+      }
+      return;
+    }
+    const btn = ev.target.closest('button[data-act]');
+    if (!btn) {
+      // 点返回值行（不含行内的 radio）→ 选中它并把它带进下方编辑区
+      const row = ev.target.closest('.resp-item');
+      if (row && !ev.target.closest('input')) {
+        d.sel = Number(row.dataset.ri) || 0;
+        normalizePick(d);
+        renderMockEditor();
+      }
+      return;
+    }
+    const act = btn.dataset.act;
+    const ri = Number(btn.dataset.ri);
+    const rs = respList(d);
+    if (act === 'add-param') { d.params.push({ k: '', v: '', on: true }); renderMockEditor(); }
+    else if (act === 'params-all') { d.params.forEach((p) => { p.on = true; }); renderMockEditor(); }
+    else if (act === 'params-none') { d.params.forEach((p) => { p.on = false; }); renderMockEditor(); }
+    else if (act === 'zoom-body') openRespModal({ edit: true });
+    else if (act === 'format-body') formatDraftBody();
+    else if (act === 'reset-resp') resetDraftResponse();
+    else if (act === 'add-resp') {
+      rs.push(emptyResponse());
+      d.sel = rs.length - 1;
+      normalizePick(d);
+      renderMockEditor();
+    }
+    else if (act === 'append-resp') appendRealResponse();
+    else if (act === 'dup-resp') {
+      if (!rs[ri]) return;
+      // 副本插在原件后面（浅拷贝即可：条目里的字段都是标量 / 一层 headers）
+      rs.splice(ri + 1, 0, { ...rs[ri], headers: { ...(isPlainObject(rs[ri].headers) ? rs[ri].headers : {}) } });
+      d.sel = ri + 1;
+      if (Number(d.pinIndex) > ri) d.pinIndex = Number(d.pinIndex) + 1;
+      normalizePick(d);
+      renderMockEditor();
+    }
+    else if (act === 'del-resp') {
+      if (rs.length <= 1) { toast('至少保留一条返回值；不需要这条 mock 请直接关掉规则'); return; }
+      if (!rs[ri]) return;
+      rs.splice(ri, 1);
+      // 删掉的那条之前的条目下标不变；指定与选中项跟着剩下的条目走
+      if (Number(d.pinIndex) > ri) d.pinIndex = Number(d.pinIndex) - 1;
+      else if (Number(d.pinIndex) === ri) d.pinIndex = Math.min(ri, rs.length - 1);
+      if (d.sel > ri) d.sel = d.sel - 1;
+      else if (d.sel === ri) d.sel = Math.min(ri, rs.length - 1);
+      normalizePick(d);
+      renderMockEditor();
+    }
+    else if (act === 'up-resp') { reorderResp(d, ri, ri - 1); renderMockEditor(); }
+    else if (act === 'down-resp') { reorderResp(d, ri, ri + 1); renderMockEditor(); }
+    else if (act === 'save') void saveDraft();
+    else if (act === 'delete') void deleteDraft();
+    else if (act === 'curl') copyCurl();
+  });
+
+  // ── 拖动排序（原生 HTML5 DnD，零依赖）──
+  // 拖动期间**不能**重绘列表：被拖的节点一旦被 innerHTML 换掉，HTML5 DnD 会直接取消。
+  // 所以 dragover 只做插入位高亮，真正换序在 drop 时一次完成。
+  let dragFrom = -1;
+  let dropAt = null;   // { to, after }
+  const clearDropMarks = () => {
+    el.querySelectorAll('.resp-item').forEach((n) => n.classList.remove('drop-before', 'drop-after'));
+  };
+  el.addEventListener('dragstart', (ev) => {
+    const row = ev.target.closest ? ev.target.closest('.resp-item') : null;
+    if (!row) return;
+    dragFrom = Number(row.dataset.ri);
+    row.classList.add('dragging');
+    if (ev.dataTransfer) {
+      ev.dataTransfer.effectAllowed = 'move';
+      // Firefox 必须 setData 才会真正开始拖动；某些浏览器对自定义类型有限制，失败不影响排序
+      try { ev.dataTransfer.setData('text/plain', String(dragFrom)); } catch (e) { /* 忽略 */ }
+    }
+  });
+  el.addEventListener('dragover', (ev) => {
+    if (dragFrom < 0) return;
+    const row = ev.target.closest ? ev.target.closest('.resp-item') : null;
+    if (!row) return;
+    ev.preventDefault();
+    if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
+    const rect = row.getBoundingClientRect ? row.getBoundingClientRect() : null;
+    const after = !!(rect && ev.clientY > rect.top + rect.height / 2);
+    dropAt = { to: Number(row.dataset.ri), after };
+    clearDropMarks();
+    row.classList.add(after ? 'drop-after' : 'drop-before');
+  });
+  el.addEventListener('drop', (ev) => {
+    if (dragFrom < 0) return;
+    ev.preventDefault();
+    const d = state.mockDraft;
+    if (d && dropAt) {
+      const rs = respList(d);
+      const j = dropAt.to;
+      // 「插到第 j 条之前 / 之后」换算成 reorderResp 需要的「移除后下标」
+      const to = dropAt.after ? (dragFrom < j ? j : j + 1) : (dragFrom < j ? j - 1 : j);
+      reorderResp(d, dragFrom, Math.min(Math.max(to, 0), rs.length - 1));
+      renderMockEditor();
+    }
+    dragFrom = -1; dropAt = null;
+  });
+  el.addEventListener('dragend', () => {
+    dragFrom = -1; dropAt = null;
+    clearDropMarks();
+    el.querySelectorAll('.resp-item.dragging').forEach((n) => n.classList.remove('dragging'));
+  });
+}
+
+// ── 现场快照（详情页一键生成免登录只读链接，ADR-017）──
+// 前台只保留「生成并复制」这一个动作：不提供快照列表 / 失效 / 清空的管理界面。
+// 链接的收回交给服务端 TTL（--snapshot-ttl，默认 7 天），或用管理面接口处理。
+async function shareSnapshot() {
+  const rec = state.records.find((x) => x.id === state.selected);
+  if (!rec) return;
+  const btn = $('detail').querySelector('button[data-snap]');
+  if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+  let data = null;
+  try {
+    const res = await apiFetch('/__ec/api/snapshots', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ recordId: rec.id, title: (rec.request.method || '') + ' ' + (rec.request.path || '') }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast('创建快照失败：' + (d.message || res.status));
+      return;
+    }
+    data = await res.json();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '分享快照'; }
+  }
+  if (!data) return;
+  const url = (Array.isArray(data.urls) && data.urls[0]) || '';
+  if (!url) { toast('快照已创建'); return; }
+  showSnapResult(url);
+  // 回环地址只有本机能打开：直接说出来，避免「分享出去但对方打不开」的静默失效
+  const loopback = /^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/i.test(url);
+  copyText(url, () => toast(loopback
+    ? '链接已复制，但它是回环地址（127.0.0.1）——局域网里打不开，需以 --lan 启动'
+    : '快照链接已复制，打开无需登录'));
+}
+
+/** 把刚生成的链接贴在详情页里（可再复制一次，或手动选中） */
+function showSnapResult(url) {
+  const box = $('detail').querySelector('.snap-result');
+  if (!box) return;
+  box.innerHTML =
+    '<span class="k">快照链接（免登录）</span>' +
+    '<code class="v">' + esc(url) + '</code>' +
+    '<button data-copy="snap">复制</button>';
+  box.dataset.url = url;
+  box.style.display = 'flex';
+}
+
+// ── 时间格式化（详情页 / 项目历史共用）──
+// 管理面板（fmtDur/fmtBytes/fmtMs/renderAdmin 等）已拆到独立页 /admin
+function fmtTime(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  try { return new Date(n).toLocaleString(); } catch (e) { return '—'; }
+}
+
+// ── 返回值放大查看：JSON 树 + 收起 ──
+// 「层级」= 树深度（根为第 1 层）。两种收起方式：
+//   ① 点某个节点的 ▾/▸ → 只收这一枝
+//   ② ⌥(Alt) + 点 ▾/▸ → 收起该节点所在的整个层级
+// 顶部两个按钮：`复制`（永远复制完整展开的 JSON）+ 一个总开关（还有收起的就「展开全部」，否则「收起全部」）。
+// 渲染出来的是**标准 JSON**：键带引号、非末项带逗号、容器闭合括号各占一行、缩进是真实空格，
+// 所以「全展开后选中一段复制」拿到的是干净 JSON（caret 用 CSS 伪元素画，不进选区）。
+const RESP_TREE_MAX_NODES = 20000;
+
+// respTree = { raw, nodes, collapsed:Set, rawMode, rawReason, copyAll }
+//   collapsed 用 nodes 下标（先序序号）做键，不用 path —— path 由 key 拼成，key 里带 / 会重名
+//   copyAll   = 「复制」按钮的 payload：完整展开的 JSON（与收起状态无关），不是 JSON 时为原文
+let respTree = null;
+
+function scalarKind(v) {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return 'array';
+  const t = typeof v;
+  return t === 'object' ? 'object' : t;
+}
+
+/** 弹框专用：严格识别所有 JSON 值（包括 null / 字符串 / 数字），与 tryJson 的对象/数组语义分开 */
+function parseJsonValue(text) {
+  try { return { ok: true, value: JSON.parse(String(text)) }; }
+  catch (e) { return { ok: false, value: null }; }
+}
+
+/** 把 JSON 展成扁平行（DFS 先序）；收起状态用 nodes 下标做键（path 只给人看，key 里带 / 会重名） */
+function buildTreeNodes(root) {
+  const nodes = [];
+  (function walk(val, key, depth, path, last, keyed) {
+    const arr = Array.isArray(val);
+    const obj = val !== null && typeof val === 'object' && !arr;
+    const expandable = arr || obj;
+    const entries = expandable
+      ? (arr ? val.map((x, i) => [String(i), x]) : Object.entries(val))
+      : null;
+    nodes.push({
+      i: nodes.length, key, keyed, last, depth, path, expandable, value: val, kind: scalarKind(val),
+      childCount: entries ? entries.length : 0,
+    });
+    // keyed：父级是对象才渲染 key（数组元素在 JSON 里没有下标，见 keyed 注释）
+    if (entries) entries.forEach(([k, c], idx) => walk(c, k, depth + 1, path + '/' + k, idx === entries.length - 1, !arr));
+  })(root, null, 0, '$', true, false);
+  return nodes;
+}
+
+/** 能收起/展开的节点：有子元素的对象或数组（空的 {} / [] 没有可收的东西） */
+function isCollapsible(n) {
+  return !!(n && n.expandable && n.childCount > 0);
+}
+
+/** 字符串按 JSON 规则转义（反斜杠、双引号、控制字符），这样复制出来是合法 JSON */
+function jsonEscape(s) {
+  return String(s).replace(/[\\"\u0000-\u001f]/g, (c) =>
+    c === '\\' ? '\\\\' : c === '"' ? '\\"' : c === '\n' ? '\\n' : c === '\r' ? '\\r' : c === '\t' ? '\\t'
+      : '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+
+/** 编辑态给值/键挂上 data-edit（点击进入编辑）；attrs 为 null 表示只读 */
+function editAttrsFor(n, kind) {
+  if (!respTree || !respTree.editable || respTree.rawMode) return null;
+  const what = kind === 'k' ? '键名' : '值';
+  return 'data-edit="' + kind + '" data-i="' + n.i + '" title="点击修改' + what + '（Enter 确认，Esc 取消）"';
+}
+
+function scalarHTML(v, attrs) {
+  const a = attrs ? ' ' + attrs : '';
+  if (v === null) return '<span class="tnull"' + a + '>null</span>';
+  if (typeof v === 'string') return '<span class="ts"' + a + '>"' + esc(jsonEscape(v)) + '"</span>';
+  if (typeof v === 'number') return '<span class="tn"' + a + '>' + esc(v) + '</span>';
+  if (typeof v === 'boolean') return '<span class="tbool"' + a + '>' + (v ? 'true' : 'false') + '</span>';
+  return '<span class="tnull"' + a + '>' + esc(String(v)) + '</span>';
+}
+
+/** 当前可见的节点（祖先被收起则整枝跳过；DFS 先序，遇到收起就把 hiddenBelow 压到该层） */
+function visibleNodes() {
+  const st = respTree;
+  if (!st) return [];
+  const out = [];
+  let hiddenBelow = Infinity;
+  for (const n of st.nodes) {
+    if (n.depth > hiddenBelow) continue;
+    hiddenBelow = Infinity;   // 已走出上一处被收起的子树
+    out.push(n);
+    if (isCollapsible(n) && st.collapsed.has(n.i)) hiddenBelow = n.depth;
+  }
+  return out;
+}
+
+/**
+ * 当前可见的「渲染行」= 内容行 + 容器闭合行（`}` / `]` 各占一行）。
+ * 渲染和缩略图都走这一份，否则缩略图按节点数算比例、实际行数更多，亮框会越往下越偏。
+ */
+function visibleRows() {
+  const st = respTree;
+  if (!st) return [];
+  const rows = [];
+  const open = [];   // 还没闭合的容器：{ depth, kind, last }
+  for (const n of visibleNodes()) {
+    while (open.length && open[open.length - 1].depth >= n.depth) {
+      const c = open.pop();
+      rows.push({ depth: c.depth, close: c });
+    }
+    rows.push({ depth: n.depth, node: n });
+    if (isCollapsible(n) && !st.collapsed.has(n.i)) {
+      open.push({ depth: n.depth, kind: n.kind, last: n.last });
+    }
+  }
+  while (open.length) {
+    const c = open.pop();
+    rows.push({ depth: c.depth, close: c });
+  }
+  return rows;
+}
+
+/** 缩进用真空格（配合 .trow 的 white-space:pre），选中复制出来就是标准 JSON 的缩进 */
+function jsonRowHTML(depth, caret, body) {
+  return '<div class="trow" data-depth="' + depth + '">' +
+    '<span class="tind">' + '  '.repeat(depth) + '</span>' + caret + body +
+  '</div>';
+}
+
+function caretHTMLFor(n, collapsed) {
+  if (!isCollapsible(n)) return '<span class="tcaret leaf"></span>';
+  // ▾/▸ 用 CSS ::before 生成（伪元素不进选区/剪贴板），span 里不放任何字符
+  return '<span class="tcaret' + (collapsed ? ' closed' : '') + '" data-i="' + n.i + '" data-depth="' + n.depth + '"' +
+    ' data-path="' + esc(n.path) + '" title="点击收起/展开这一枝；⌥(Alt)+点击 收起同层级"></span>';
+}
+
+/** 键要带引号；数组元素不渲染下标（JSON 里数组本来就没有 key）；编辑态键可点击改名 */
+function keyHTML(n) {
+  if (!n.keyed) return '';
+  const attrs = editAttrsFor(n, 'k');
+  return '<span class="tk"' + (attrs ? ' ' + attrs : '') + '>"' + esc(jsonEscape(n.key)) + '"</span><span class="tp">: </span>';
+}
+
+function commaHTML(n) { return n.last ? '' : '<span class="tp">,</span>'; }
+
+function treeRowsHTML() {
+  const st = respTree;
+  if (!st) return '';
+  let html = '';
+  for (const r of visibleRows()) {
+    if (r.close) {
+      html += jsonRowHTML(r.depth, '<span class="tcaret leaf"></span>',
+        '<span class="tb">' + (r.close.kind === 'array' ? ']' : '}') + '</span>' + commaHTML(r.close));
+      continue;
+    }
+    const n = r.node;
+    const collapsed = isCollapsible(n) && st.collapsed.has(n.i);
+    let val;
+    if (n.expandable && n.childCount === 0) {
+      val = '<span class="tb">' + (n.kind === 'array' ? '[]' : '{}') + '</span>' + commaHTML(n);
+    } else if (n.expandable) {
+      val = '<span class="tb">' + (n.kind === 'array' ? '[' : '{') + '</span>' +
+        (collapsed
+          ? '<span class="tmore"> … ' + n.childCount + ' 项 </span>' +
+            '<span class="tb">' + (n.kind === 'array' ? ']' : '}') + '</span>' + commaHTML(n)
+          : '');
+    } else {
+      val = scalarHTML(n.value, editAttrsFor(n, 'v')) + commaHTML(n);
+    }
+    html += jsonRowHTML(n.depth, caretHTMLFor(n, collapsed), keyHTML(n) + val);
+  }
+  return html;
+}
+
+// ── 缩略图（minimap）：整棵树压成一条竖条，亮框标出当前可见范围 ──
+const RESP_MM_MIN_RATIO = 1.5;   // 内容不到视口的 1.5 倍就不显示（没必要）
+
+function mmMetrics() {
+  const tree = $('resp-modal-body');
+  const mm = $('resp-minimap');
+  return {
+    tree, mm,
+    viewH: tree.clientHeight || 0,
+    contentH: tree.scrollHeight || 0,
+    mmW: mm.clientWidth || 0,
+    mmH: mm.clientHeight || 0,
+  };
+}
+
+/** 重画缩略图本体：每一像素行取该行覆盖到的「最深深度」，越深横条越长 */
+function drawMinimap() {
+  const st = respTree;
+  const m = mmMetrics();
+  const longEnough = m.viewH > 0 && m.contentH > m.viewH * RESP_MM_MIN_RATIO;
+  if (!st || st.rawMode || !longEnough) { m.mm.classList.add('hidden'); return; }
+  m.mm.classList.remove('hidden');
+
+  const cv = $('resp-mm-canvas');
+  const ctx = cv.getContext ? cv.getContext('2d') : null;
+  if (!ctx) return;
+  const w = m.mm.clientWidth || 0, h = m.mm.clientHeight || 0;
+  if (!w || !h) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(h * dpr);
+  cv.style.width = w + 'px';
+  cv.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  // 用「渲染行」而不是「节点数」：闭合括号各占一行，用节点数算会让亮框越往下越偏
+  const rows = visibleRows();
+  const total = rows.length;
+  if (!total) return;
+  let maxDepth = 0;
+  for (const r of rows) if (r.depth > maxDepth) maxDepth = r.depth;
+
+  const buckets = new Array(h).fill(-1);
+  for (let r = 0; r < total; r++) {
+    const y = Math.min(h - 1, Math.floor(((r + 0.5) / total) * h));
+    if (rows[r].depth > buckets[y]) buckets[y] = rows[r].depth;
+  }
+
+  const pad = 2, inner = Math.max(1, w - pad * 2);
+  ctx.fillStyle = 'rgba(15, 110, 86, .55)';
+  for (let y = 0; y < h; y++) {
+    const d = buckets[y];
+    if (d < 0) continue;
+    ctx.fillRect(pad, y, maxDepth ? Math.max(2, inner * ((d + 1) / (maxDepth + 1))) : inner, 1);
+  }
+  updateMinimapView();
+}
+
+/** 只挪「当前可见范围」那个亮框（滚动时每帧调，成本要低） */
+function updateMinimapView() {
+  const m = mmMetrics();
+  if (m.mm.classList.contains('hidden') || !m.mmH || !m.contentH) return;
+  const v = $('resp-mm-view');
+  const vh = Math.min(m.mmH, Math.max(10, (m.viewH / m.contentH) * m.mmH));
+  const top = Math.min(m.mmH - vh, Math.max(0, (m.tree.scrollTop / m.contentH) * m.mmH));
+  v.style.top = top + 'px';
+  v.style.height = vh + 'px';
+}
+
+/** 点/拖缩略图 → 跳到对应位置（把目标点放在视口正中） */
+function mmJump(clientY) {
+  const m = mmMetrics();
+  if (m.mm.classList.contains('hidden') || !m.mmH || !m.contentH) return;
+  if (typeof m.mm.getBoundingClientRect !== 'function') return;
+  const rect = m.mm.getBoundingClientRect();
+  if (!rect || !rect.height) return;
+  const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+  m.tree.scrollTop = Math.max(0, ratio * m.contentH - m.viewH / 2);
+  updateMinimapView();
+}
+
+/** 由一段原文构建弹框状态（浏览「放大查看」与 Mock「放大编辑」共用） */
+function buildRespState(raw, editable, whyRaw) {
+  const text = typeof raw === 'string' ? raw : '';
+  const parsed = parseJsonValue(text);
+  const nodes = parsed.ok ? buildTreeNodes(parsed.value) : [];
+  const tooBig = nodes.length > RESP_TREE_MAX_NODES;
+  let rawReason = '';
+  if (!parsed.ok) {
+    rawReason = whyRaw || (editable ? '不是合法 JSON，按原文编辑' : '不是合法 JSON，按原文展示');
+  } else if (tooBig) {
+    rawReason = '节点太多（> ' + RESP_TREE_MAX_NODES + '），按原文' + (editable ? '编辑' : '展示');
+  }
+  return {
+    raw: text, nodes: tooBig ? [] : nodes, collapsed: new Set(),
+    rawMode: !parsed.ok || tooBig, rawReason, editable: !!editable, tab: 'view',
+    root: parsed.ok ? parsed.value : null,
+    parsed: parsed.ok,
+    // 编辑态有两种视图：层级（树，可直接改值/键）与文本（textarea）；默认层级，非 JSON 退回文本
+    view: editable && (!parsed.ok || tooBig) ? 'text' : 'tree',
+    // 复制按钮给的是「完整、展开、格式化」的 JSON，跟当前收起状态无关；不是 JSON 就复制原文
+    copyAll: parsed.ok ? JSON.stringify(parsed.value, null, 2) : text,
+  };
+}
+
+/** 弹框当前该显示哪份原文：编辑模式读草稿里**选中那条**返回值（实时），浏览模式读打开时冻结的那份 */
+function respRawText() {
+  if (!respTree) return '';
+  if (respTree.editable) return state.mockDraft ? curBody(state.mockDraft) : '';
+  return respTree.raw;
+}
+
+/** 弹框标题：编辑态多条返回值时必须标明「在改第几条」（不然容易改错条目） */
+function respModalTitle() {
+  const d = state.mockDraft;
+  if (!d) return '编辑返回值';
+  const n = respList(d).length;
+  return n > 1 ? '编辑返回值 · 第 ' + (d.sel + 1) + ' 条 / 共 ' + n + ' 条' : '编辑返回值';
+}
+
+function renderRespModal() {
+  const st = respTree;
+  if (!st) return;
+  const treeWrap = $('resp-tree-wrap');
+  const ed = $('resp-modal-editor');
+  const btn = $('rt-toggle');
+  const vtree = $('rt-vtree'), vtext = $('rt-vtext');
+
+  if (st.editable) {
+    const isTree = st.view === 'tree' && !st.rawMode;
+    // 视图切换只有编辑态有；非 JSON（rawMode）没有树，只留「文本」
+    vtree.style.display = st.rawMode ? 'none' : '';
+    vtext.style.display = '';
+    vtree.classList.toggle('on', isTree);
+    vtext.classList.toggle('on', !isTree);
+    $('rt-format').style.display = isTree ? 'none' : '';
+    $('rt-copy').style.display = '';
+    btn.style.display = isTree ? '' : 'none';
+    $('resp-modal-title').textContent = respModalTitle();
+    if (isTree) {
+      treeWrap.classList.remove('hidden');
+      ed.classList.add('hidden');
+      $('resp-modal-body').innerHTML = treeRowsHTML();
+      $('resp-modal-hint').innerHTML =
+        '点 ▾/▸ 收起/展开；点<b>值</b>或<b>键</b>可直接修改（数组下标不可改），改完自动转回 JSON 文本。' +
+        '⌘/Ctrl+S 保存并生效，成功后关闭。';
+    } else {
+      treeWrap.classList.add('hidden');
+      ed.classList.remove('hidden');
+      const text = respRawText();
+      // 只在内容真的变了才写回 value —— 否则每敲一个字都重设 value，光标会跳到末尾
+      if (ed.value !== text) ed.value = text;
+      ed.focus();
+      $('resp-modal-hint').textContent = st.rawMode
+        ? (st.rawReason || '')
+        : '直接编辑返回值；⌘/Ctrl+S 保存并生效，成功后关闭此窗口。';
+    }
+    drawMinimap();
+    return;
+  }
+
+  vtree.style.display = 'none';
+  vtext.style.display = 'none';
+  $('rt-format').style.display = 'none';
+  $('rt-copy').style.display = '';
+  ed.classList.add('hidden');
+  treeWrap.classList.remove('hidden');
+  if (st.rawMode) {
+    btn.style.display = 'none';
+    $('resp-modal-hint').textContent = st.rawReason;
+    $('resp-modal-body').innerHTML = '<pre class="body traw">' + esc(st.raw.slice(0, 200000)) + '</pre>';
+  } else {
+    btn.style.display = '';
+    btn.textContent = st.collapsed.size ? '展开全部' : '收起全部';
+    $('resp-modal-hint').innerHTML =
+      '点 ▾/▸ 收起/展开单个；<b>⌥(Alt) + 点 ▾/▸</b> 收起该层级（再点展开）';
+    $('resp-modal-body').innerHTML = treeRowsHTML();
+  }
+  // rawMode 时由它负责把缩略图藏掉（否则会留着上一条的旧刻度）
+  drawMinimap();
+}
+
+/** 打开弹框。opts.edit = true 进入编辑模式，来源是 Mock 编辑器草稿的 body */
+function openRespModal(opts) {
+  opts = opts || {};
+  if (opts.edit) {
+    const d = state.mockDraft;
+    if (!d) return;
+    respTree = buildRespState(curBody(d), true);
+  } else {
+    const r = state.records.find((x) => x.id === state.selected);
+    if (!r) return;
+    const whyRaw = r.response.bodyEncoding === 'base64' ? '二进制（base64）内容，按原文展示'
+      : r.response.bodyTruncated ? '返回值被截断 / 采样，不是完整 JSON，按原文展示' : '';
+    // 详情区切到「密文」时，放大查看也要看密文，否则用户会以为切换没生效
+    const bodyText = respShowRaw && typeof r.response.rawBody === 'string' ? r.response.rawBody : (r.response.body || '');
+    respTree = buildRespState(bodyText, false, whyRaw);
+    $('resp-modal-title').textContent = r.request.method + ' ' + ifaceLabel(r) + (respShowRaw ? ' · 密文原文' : ' · 返回值');
+  }
+  $('resp-modal').classList.remove('hidden');
+  renderRespModal();
+}
+
+function closeRespModal() {
+  const wasEdit = !!(respTree && respTree.editable);
+  $('resp-modal').classList.add('hidden');
+  respTree = null;
+  // 编辑态改的是草稿 body —— 关掉后把 Mock 编辑器里那块文本框同步成最新内容
+  if (wasEdit) renderMockEditor();
+}
+
+/** 编辑态：把当前原文格式化成 2 空格缩进的 JSON（不是 JSON 就提示，不动原文） */
+function formatRespEdit() {
+  const st = respTree;
+  if (!st || !st.editable || !state.mockDraft) return;
+  const result = parseJsonValue(curBody(state.mockDraft));
+  if (!result.ok) { toast('不是合法 JSON，未格式化'); return; }
+  setCurBody(state.mockDraft, JSON.stringify(result.value, null, 2));
+  // 树已经是有效 JSON 时，格式化只是重新缩进 —— 同步 root/nodes，切回层级视图才不会看到旧内容
+  if (st.parsed) {
+    st.root = result.value;
+    st.nodes = buildTreeNodes(st.root);
+    st.raw = curBody(state.mockDraft);
+    st.copyAll = curBody(state.mockDraft);
+  }
+  const ed = $('resp-modal-editor');
+  if (ed) ed.value = curBody(state.mockDraft);
+  toast('已格式化');
+}
+
+/** 收起/展开单个节点（按 nodes 下标） */
+function toggleTreeNode(i) {
+  const st = respTree;
+  if (!st) return;
+  if (st.collapsed.has(i)) st.collapsed.delete(i); else st.collapsed.add(i);
+  renderRespModal();
+}
+
+/** 收起/展开某一层级：该层还有展开的就全收，已全收就全展开 */
+function toggleTreeLevel(depth) {
+  const st = respTree;
+  if (!st) return;
+  const at = st.nodes.filter((n) => isCollapsible(n) && n.depth === depth);
+  if (!at.length) return;
+  const allCollapsed = at.every((n) => st.collapsed.has(n.i));
+  at.forEach((n) => { if (allCollapsed) st.collapsed.delete(n.i); else st.collapsed.add(n.i); });
+  renderRespModal();
+}
+
+/** 总开关：还有收起着的就全展开，否则全收起 */
+function toggleAllTree() {
+  const st = respTree;
+  if (!st || st.rawMode) return;
+  if (st.collapsed.size) st.collapsed.clear();
+  else st.nodes.forEach((n) => { if (isCollapsible(n)) st.collapsed.add(n.i); });
+  renderRespModal();
+}
+
+// ── 层级编辑：树里直接改值/键，改完同步回 JSON 文本 ──
+// 与 buildTreeNodes 完全同序的先序遍历，按 nodes 下标定位节点在 root 里的位置
+function locateNode(root, target) {
+  let idx = 0, found = null;
+  (function walk(val, key, keyed, parent) {
+    if (found) return;
+    if (idx === target) { found = { value: val, key, keyed, parent }; return; }
+    idx++;
+    if (val !== null && typeof val === 'object') {
+      if (Array.isArray(val)) val.forEach((c) => walk(c, null, false, val));
+      else Object.entries(val).forEach(([k, c]) => walk(c, k, true, val));
+    }
+  })(root, null, false, null);
+  return found;
+}
+
+/** 输入框里的文本 → JSON 标量：true/false/null/数字按类型收，其余一律按字符串 */
+function jsonScalarFromText(raw) {
+  const s = String(raw);
+  if (s === 'true') return true;
+  if (s === 'false') return false;
+  if (s === 'null') return null;
+  const t = s.trim();
+  if (t !== '' && /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(t) && Number.isFinite(Number(t))) return Number(t);
+  return s;
+}
+
+/** 把第 i 个节点的值改成 raw 解析出的标量；返回是否成功 */
+function applyTreeValueEdit(i, raw) {
+  const st = respTree;
+  if (!st || !st.parsed) return false;
+  const loc = locateNode(st.root, i);
+  if (!loc) return false;
+  const v = jsonScalarFromText(raw);
+  if (loc.parent === null) { st.root = v; return true; }   // 根本身就是标量
+  if (Array.isArray(loc.parent)) loc.parent[Number(loc.key)] = v;
+  else loc.parent[loc.key] = v;
+  return true;
+}
+
+/** 把第 i 个节点的键改成 nk；重建父对象以保持键顺序，重名/空名拒绝 */
+function applyTreeKeyRename(i, nk) {
+  const st = respTree;
+  if (!st || !st.parsed) return false;
+  const loc = locateNode(st.root, i);
+  if (!loc || !loc.keyed || loc.parent === null || Array.isArray(loc.parent)) return false;
+  const name = String(nk).trim();
+  if (!name) return false;
+  if (name === loc.key) return true;
+  if (Object.prototype.hasOwnProperty.call(loc.parent, name)) return false;
+  if (!Object.prototype.hasOwnProperty.call(loc.parent, loc.key)) return false;
+  const rebuilt = {};
+  for (const [k, v] of Object.entries(loc.parent)) rebuilt[k === loc.key ? name : k] = v;
+  Object.keys(loc.parent).forEach((k) => { delete loc.parent[k]; });
+  Object.assign(loc.parent, rebuilt);
+  return true;
+}
+
+/** 树改完 → 重新序列化成 2 空格 JSON，同步到草稿 body / raw / copyAll，并按新值重建节点 */
+function syncTreeToDraft() {
+  const st = respTree;
+  if (!st || !st.editable || !st.parsed || !state.mockDraft) return;
+  st.nodes = buildTreeNodes(st.root);   // 结构没变（只改了标量/键名），先序序号不变，收起状态仍然有效
+  const text = JSON.stringify(st.root, null, 2);
+  st.raw = text;
+  st.copyAll = text;
+  setCurBody(state.mockDraft, text);
+}
+
+/** 点击值/键：原地换成输入框（Enter/失焦提交，Esc 取消） */
+function beginTreeEdit(span, kind, i) {
+  const st = respTree;
+  if (!st || !st.editable || st.rawMode) return;
+  const n = st.nodes[i];
+  if (!n) return;
+  if (kind === 'k' && !n.keyed) return;
+  const input = document.createElement('input');
+  input.className = 'jted';
+  input.value = kind === 'k' ? String(n.key) : (n.value === null ? 'null' : String(n.value));
+  input.dataset.editKind = kind;
+  input.dataset.i = String(i);
+  span.replaceWith(input);
+  input.focus();
+  if (typeof input.select === 'function') input.select();
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); commitTreeEdit(input); }
+    else if (ev.key === 'Escape') { ev.stopPropagation(); renderRespModal(); }
+  });
+  input.addEventListener('blur', () => commitTreeEdit(input));
+}
+
+function commitTreeEdit(input) {
+  const st = respTree;
+  if (!st || !st.editable) return;
+  if (input.dataset.done) return;   // Enter 提交后移除节点可能再触发一次 blur，别重复应用
+  input.dataset.done = '1';
+  const kind = input.dataset.editKind;
+  const i = Number(input.dataset.i);
+  if (!st.nodes[i]) { renderRespModal(); return; }
+  let ok = true;
+  if (kind === 'k') ok = applyTreeKeyRename(i, input.value);
+  else ok = applyTreeValueEdit(i, input.value);
+  if (!ok) { toast(kind === 'k' ? '键名为空或与兄弟键重复，未修改' : '修改未生效'); }
+  syncTreeToDraft();
+  renderRespModal();
+}
+
+/** 编辑态切换 层级/文本 视图 */
+function switchRespView(v) {
+  const st = respTree;
+  if (!st || !st.editable) return;
+  st.view = v === 'text' ? 'text' : 'tree';
+  renderRespModal();
+}
+
+// ── 事件 ──
+document.querySelectorAll('.ms-btn').forEach((b) => { b.onclick = () => setMode(b.dataset.mode); });
+bindMockEditor();
+$('btn-login').onclick = doLogin;
+$('in-pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+$('in-phone').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+$('btn-logout').onclick = async () => {
+  await apiFetch('/__ec/api/logout', { method: 'POST' });
+  state.session = null; state.user = null;
+  localStorage.removeItem('ec_session');
+  showLogin();
+};
+$('search').oninput = (e) => { state.query = e.target.value.trim(); renderList(); };
+$('btn-clear').onclick = () => { void clearVisible(); };
+// 返回值弹框：总开关、⌥(Alt)+点 caret 收整层、点遮罩或 Esc 关闭
+$('resp-modal-close').onclick = closeRespModal;
+$('rt-copy').onclick = () => {
+  if (!respTree) return;
+  // 编辑态复制「实际会返回的原文」；浏览态复制完整展开的 JSON
+  if (respTree.editable) copyText(respRawText(), () => toast('已复制返回值原文'));
+  else copyText(respTree.copyAll, () => toast('已复制完整返回值'));
+};
+$('rt-toggle').onclick = toggleAllTree;
+// 编辑模式的 层级/文本 视图切换
+$('rt-vtree').onclick = () => switchRespView('tree');
+$('rt-vtext').onclick = () => switchRespView('text');
+// 编辑模式：格式化 + 输入直接写回草稿（⌘/Ctrl+S 保存并生效）
+$('rt-format').onclick = formatRespEdit;
+$('resp-modal-editor').addEventListener('input', (ev) => {
+  if (!respTree || !respTree.editable || !state.mockDraft) return;
+  setCurBody(state.mockDraft, ev.target.value);
+});
+$('resp-modal-body').addEventListener('click', (ev) => {
+  // 编辑态：点值/键进入原地编辑（正在选文本复制时不触发）
+  const ted = ev.target.closest('[data-edit]');
+  if (ted && respTree && respTree.editable) {
+    const sel = typeof window.getSelection === 'function' ? String(window.getSelection()) : '';
+    if (sel) return;
+    beginTreeEdit(ted, ted.dataset.edit, Number(ted.dataset.i));
+    return;
+  }
+  const caret = ev.target.closest('.tcaret[data-i]');
+  if (!caret) return;
+  if (ev.altKey) toggleTreeLevel(Number(caret.dataset.depth));   // ⌥/Alt + 点击 → 整个层级
+  else toggleTreeNode(Number(caret.dataset.i));                   // 普通点击 → 只收这一枝
+});
+$('resp-modal').addEventListener('click', (ev) => {
+  if (ev.target === $('resp-modal')) closeRespModal();            // 点遮罩关闭
+});
+// 缩略图：滚动时挪亮框；按住可拖动跳转
+$('resp-modal-body').addEventListener('scroll', updateMinimapView);
+let mmDrag = false;
+$('resp-minimap').addEventListener('mousedown', (ev) => {
+  ev.preventDefault();
+  mmDrag = true;
+  mmJump(ev.clientY);
+});
+document.addEventListener('mousemove', (ev) => { if (mmDrag) mmJump(ev.clientY); });
+document.addEventListener('mouseup', () => { mmDrag = false; });
+// 窗口尺寸变化时缩略图要重算（行高、桶数都跟着变）
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(() => { drawMinimap(); }).observe($('resp-modal-body'));
+}
+document.addEventListener('keydown', async (ev) => {
+  if ((ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === 's' &&
+      state.mode === 'mock' && state.mockDraft) {
+    ev.preventDefault();
+    if (ev.repeat) return;
+    const closeAfterSave = !!(respTree && respTree.editable && !$('resp-modal').classList.contains('hidden'));
+    try {
+      const saved = await saveDraft();
+      if (saved && closeAfterSave) closeRespModal();
+    } catch (e) {
+      toast('保存失败：' + (e && e.message ? e.message : '请检查连接后重试'));
+    }
+    return;
+  }
+  if (ev.key === 'Escape' && !$('resp-modal').classList.contains('hidden')) closeRespModal();
+});
+// 详情区整块重绘，复制按钮用事件委托（data-copy=resp|req）
+$('detail').addEventListener('click', (ev) => {
+  if (ev.target.closest('button[data-mock]')) { mockFromRecord(); return; }
+  if (ev.target.closest('button[data-snap]')) { void shareSnapshot(); return; }
+  if (ev.target.closest('button[data-zoom]')) { openRespModal(); return; }
+  const cbtn = ev.target.closest('button[data-crypto]');
+  if (cbtn) {
+    const card = cbtn.closest('.card');
+    const plain = card && card.querySelector('[data-view="plain"]');
+    const raw = card && card.querySelector('[data-view="raw"]');
+    if (!plain || !raw) return;
+    respShowRaw = raw.style.display === 'none';
+    raw.style.display = respShowRaw ? '' : 'none';
+    plain.style.display = respShowRaw ? 'none' : '';
+    cbtn.textContent = respShowRaw ? '查看明文' : '查看密文';
+    return;
+  }
+  const btn = ev.target.closest('button[data-copy]');
+  if (!btn) return;
+  const done = () => {
+    const old = btn.textContent;
+    btn.textContent = '已复制';
+    setTimeout(() => { btn.textContent = old; }, 1200);
+  };
+  // 快照链接：内容在详情页的 .snap-result 上，不依赖当前选中记录
+  if (btn.dataset.copy === 'snap') {
+    const box = $('detail').querySelector('.snap-result');
+    copyText((box && box.dataset.url) || '', done);
+    return;
+  }
+  const r = state.records.find((x) => x.id === state.selected);
+  if (!r) return;
+  // 复制跟随当前视图：切到密文却复制出明文，排查时最容易拿错东西
+  const card = btn.closest('.card');
+  const rawBox = card && card.querySelector('[data-view="raw"]');
+  const showingRaw = !!(rawBox && rawBox.style.display !== 'none');
+  const text = btn.dataset.copy === 'resp'
+    ? (showingRaw ? (r.response.rawBody || r.response.body || '') : (r.response.body || ''))
+    : (r.request.body || '');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => {});
+    return;
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) {}
+  document.body.removeChild(ta);
+});
+// 设备下拉：点击展开 / 点击外部或 Esc 收起
+$('dp-trigger').onclick = () => setPickerOpen(!dpOpen);
+document.addEventListener('click', (e) => {
+  if (!dpOpen) return;
+  if ($('device-picker').contains(e.target)) return;
+  setPickerOpen(false);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dpOpen) setPickerOpen(false); });
+$('btn-about').onclick = () => window.open('/about', '_blank', 'noopener');
+// 重置顺序 mock 的进度。原先挂在「规则（JSON）」抽屉里，抽屉移除后搬到 Mock 视图工具栏
+// （ADR-036）：这个能力没有别的入口，删抽屉时必须一起搬，否则界面上就再也归不了零。
+// 只清调用者私有规则的指针（服务端 resetPointers 的口径），不动别人的序列。
+$('btn-reset-ptr').onclick = async () => {
+  const res = await apiFetch('/__ec/api/rules/reset-pointers', { method: 'POST' });
+  if (!res.ok) { toast('重置失败：' + (await apiErrText(res))); return; }
+  const data = await res.json().catch(() => ({}));
+  // 回传条数是刻意的：0 条和「我本来就没有顺序规则」在两代实现里长得一模一样
+  toast('序列指针已重置（我的私有规则 ' + (Number(data.clearedFor) || 0) + ' 条）');
+};
+
+// ── 侧栏宽度拖拽 ──
+// 列表里的路径容易超宽，允许把侧栏拉宽；宽度按模式分别记在 localStorage。
+// 双击手柄恢复默认宽度。
+const SIDEBAR_MIN = 320, SIDEBAR_MAX = 900;
+
+function sidebarKey(name) { return 'ec_sidebar_w_' + name; }
+
+function setSidebarWidth(aside, w) {
+  const clamped = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, Math.round(w)));
+  aside.style.width = clamped + 'px';
+  aside.style.minWidth = clamped + 'px';
+  return clamped;
+}
+
+function applySidebarWidths() {
+  document.querySelectorAll('.sidebar[data-sidebar]').forEach((aside) => {
+    let saved = NaN;
+    try { saved = parseInt(localStorage.getItem(sidebarKey(aside.dataset.sidebar)) || '', 10); } catch (e) {}
+    if (Number.isFinite(saved)) setSidebarWidth(aside, saved);
+  });
+}
+
+function initSidebarResizers() {
+  document.querySelectorAll('.sidebar-resizer').forEach((handle) => {
+    const aside = handle.parentElement;
+    if (!aside) return;
+    handle.onmousedown = (e) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startW = aside.getBoundingClientRect().width;
+      handle.classList.add('dragging');
+      document.body.classList.add('col-resizing');
+      const onMove = (ev) => setSidebarWidth(aside, startW + (ev.clientX - startX));
+      const onUp = () => {
+        handle.classList.remove('dragging');
+        document.body.classList.remove('col-resizing');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        try { localStorage.setItem(sidebarKey(aside.dataset.sidebar), String(parseInt(aside.style.width, 10))); } catch (e2) {}
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    };
+    handle.ondblclick = () => {
+      aside.style.width = '';
+      aside.style.minWidth = '';
+      try { localStorage.removeItem(sidebarKey(aside.dataset.sidebar)); } catch (e3) {}
+    };
+  });
+}
+
+applySidebarWidths();
+initSidebarResizers();
+
+// ── CLI 浏览器登录接力（ADR-029）──────────────────────────────
+// CLI 在本机 127.0.0.1 起一次性监听，把带 nonce 的本页地址开进浏览器；
+// 人在这里登录（或复用已有会话），点「允许」后页面把会话 POST 回那个回环端口。
+// 两条刻意的约束：
+//   ① 服务端**一个端点都不加**（AGENTS.md §3）：管理面登录还是只有手机号 + 口令，
+//      不存在「拿 nonce 换会话」的口子；会话只在「本页 → 本机回环」之间流动，
+//      不进 URL（地址里只有 nonce，而且走 #hash，连服务端访问记录都不进）。
+//   ② 必须有人点一次「允许」：少了这一步，任何一个本地进程诱导你打开
+//      `<本页地址>#cli-login?port=<它的端口>` 就能静默拿走你的会话 token。
+//
+// 纯逻辑区段（被 tools/console-mock-check.mjs 切出来单测，不碰 DOM）
+function parseCliLogin(rawHash) {
+  const h = String(rawHash == null ? '' : rawHash).replace(/^#/, '');
+  if (h.indexOf('cli-login?') !== 0) return null;
+  const q = new URLSearchParams(h.slice('cli-login?'.length));
+  const keys = [];
+  q.forEach((_v, k) => keys.push(k));
+  // 多余参数一律不认：这条 URL 的语义是「同意把会话交出去」，不接受没定义过的旋钮
+  if (keys.length !== 2 || !q.has('port') || !q.has('state')) return null;
+  const port = Number(q.get('port'));
+  const state = String(q.get('state') || '');
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) return null;
+  if (!/^[0-9a-f]{16,64}$/i.test(state)) return null;
+  return { port: port, state: state };
+}
+
+function cliCallbackEndpoint(req) {
+  // 主机名写死 127.0.0.1：只可能是本机的 CLI，永远不可能是「另一个地址上的服务」
+  return 'http://127.0.0.1:' + req.port + '/ec-cli-callback';
+}
+
+/** 没有会话就没什么可交接的：返回 null，由调用方保持登录态不变 */
+function cliLoginPayload(req, session, user) {
+  if (!req || typeof session !== 'string' || !session) return null;
+  const u = user && typeof user === 'object' ? user : {};
+  return {
+    state: req.state,
+    session: session,
+    phone: typeof u.phone === 'string' ? u.phone : null,
+    role: typeof u.role === 'string' ? u.role : null,
+  };
+}
+
+/** 确认框里那几行「你到底在同意什么」：纯文本，交给 DOM 层渲染 */
+function cliConsentRows(req, user, origin) {
+  return [
+    ['本机 CLI 要连的服务', origin],
+    ['将交出去的会话属于', (user && user.phone) ? user.phone : '（未知，登录后才知道）'],
+    ['角色', (user && user.role) ? user.role : 'user'],
+    ['回传地址', cliCallbackEndpoint(req)],
+  ];
+}
+
+/**
+ * 「拒绝」也要回一条，否则 CLI 会干等到超时才知道自己被拒了。
+ * 只有 state 与 denied 两个字段——**绝不带 session**，这点由 console-mock-check 守着。
+ */
+function cliDenyPayload(req) {
+  if (!req) return null;
+  return { state: req.state, denied: true };
+}
+// ── CLI 登录接力：纯逻辑结束 ──
+
+// nonce 只活在内存里；处理完立刻从地址栏抹掉（它是一次性的，留在地址栏/历史里没有意义）
+let cliLoginReq = parseCliLogin(location.hash);
+
+function clearCliLoginHash() {
+  try {
+    if (location.hash && location.hash.indexOf('#cli-login') === 0) {
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  } catch (e) { /* 沙箱里的 history 不可用就算了，不影响功能 */ }
+}
+
+function cliConsentDom() {
+  let box = document.getElementById('cli-consent');
+  if (box) return box;
+  box = document.createElement('div');
+  box.className = 'cli-consent hidden';
+  box.id = 'cli-consent';
+  box.innerHTML =
+    '<div class="cli-consent-box">' +
+    '<h2>本地 CLI 请求使用你的会话</h2>' +
+    '<p class="sub">同意后 CLI 就能读写这个服务上的 Mock 规则。<b>只有你认识这个操作时才点允许。</b></p>' +
+    '<dl id="cli-consent-rows"></dl>' +
+    '<div class="cli-consent-tools">' +
+    '<button id="cli-consent-deny">拒绝</button>' +
+    '<button class="primary" id="cli-consent-allow">允许</button>' +
+    '</div>' +
+    '<div class="cli-consent-msg" id="cli-consent-msg"></div>' +
+    '</div>';
+  document.body.appendChild(box);
+  $('cli-consent-allow').addEventListener('click', () => submitCliLogin(true));
+  $('cli-consent-deny').addEventListener('click', () => submitCliLogin(false));
+  return box;
+}
+
+function showCliConsent() {
+  if (!cliLoginReq) return;
+  cliConsentDom();
+  const rows = cliConsentRows(cliLoginReq, state.user, location.origin);
+  $('cli-consent-rows').innerHTML = rows.map((r) =>
+    '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>').join('');
+  $('cli-consent-msg').textContent = '';
+  $('cli-consent-allow').disabled = false;
+  cliConsentDom().classList.remove('hidden');
+}
+
+async function submitCliLogin(allowed) {
+  const req = cliLoginReq;
+  if (!req) return;
+  const msg = $('cli-consent-msg');
+  if (!allowed) {
+    const body = JSON.stringify(cliDenyPayload(req));
+    cliLoginReq = null;
+    msg.textContent = '已拒绝，CLI 那边收到了。需要时重新跑一次 mock login --browser。';
+    // 决定已经做了，两个按钮都不该再点：留着会让人以为还能「改主意点允许」，
+    // 而 cliLoginReq 已经清空，再点是一次没有任何效果的空操作
+    $('cli-consent-allow').disabled = true;
+    $('cli-consent-deny').disabled = true;
+    clearCliLoginHash();
+    // 通知是「尽力而为」：CLI 可能已经超时退出，那时这条 POST 连不上也不该在页面上留个错误
+    fetch(cliCallbackEndpoint(req), {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
+      body: body,
+    }).catch(function () {});
+    return;
+  }
+  const payload = cliLoginPayload(req, state.session, state.user);
+  if (!payload) { msg.textContent = '当前没有可用会话，先在上面登录。'; return; }
+  $('cli-consent-allow').disabled = true;
+  msg.textContent = '正在回传…';
+  try {
+    // content-type 用 text/plain：这是 CORS「简单请求」里的类型，不会先走预检
+    const res = await fetch(cliCallbackEndpoint(req), {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify(payload),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (res.ok && j && j.ok) {
+      cliLoginReq = null;
+      // 会话已经交出去了，确认框就不要再挡着控制台；结果用 toast 说一句
+      $('cli-consent').classList.add('hidden');
+      toast('已把会话交给本机 CLI');
+    } else {
+      msg.textContent = (j && j.message) ? j.message : ('CLI 拒绝了这次回传（HTTP ' + res.status + '）');
+      $('cli-consent-allow').disabled = false;
+    }
+  } catch (e) {
+    // 连不上回环端口最常见的原因：CLI 已经超时退出，或浏览器不在这台机器上
+    msg.textContent = '连不上本机 CLI（' + (e && e.message ? e.message : e) + '）——' +
+      '多半是 CLI 已经超时退出，或这个浏览器不在跑 CLI 的那台机器上。' +
+      '后者请改用 printf 口令 | mock login --password-stdin。';
+    $('cli-consent-allow').disabled = false;
+  }
+  clearCliLoginHash();
+}
+
+function maybeOfferCliLogin() {
+  if (cliLoginReq && state.session && state.user) showCliConsent();
+}
+
+// ── 启动 ──
+bindConfirmModal();
+state.session = localStorage.getItem('ec_session');
+boot();
+</script>
+</body>
+</html>

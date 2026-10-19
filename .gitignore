@@ -1,0 +1,46 @@
+# 依赖
+node_modules/
+
+# 运行时数据（规则文件、记录落盘目录）
+server/.data/
+server/.data-selftest/
+# 加解密密钥档（ADR-039）：正规位置在 server/.data/crypto/settings.json，已被上面忽略。
+# 这两行兜住「换个目录存」的写法——密钥不进仓库靠的是路径策略 + pre-commit，不是自觉。
+server/crypto/
+*crypto-settings.json
+
+# 构建产物
+build/
+dist/
+*.class
+.gradle/
+.idea/
+*.iml
+
+# 发布包在 macOS 上读的本地配置（含控制台口令）；模板是 scripts/deploy/easy-charles.env.example
+easy-charles.env
+# 部署目标机（内网地址 / mDNS 名），入库的是模板 scripts/deploy.conf.example
+scripts/deploy.conf
+local.properties
+*.keystore
+*.jks
+.env
+.env.*
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+tmp/
+temp/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+*.swp
+
+# 本地工具记忆与工作日志（不入库）
+.workbuddy/
+.workbuddy-ai/

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 240" width="1000" height="240" role="img"
+     aria-label="抓包不用装证书：手机 App 的请求经 EasyCharles 转发，全程明文可见">
+  <title>抓包，手机不用装证书</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .node   { font-size: 15px; font-weight: 700; fill: #1f2937; }
+    .nodesub{ font-size: 11px; fill: #6b7280; }
+    .code   { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; fill: #374151; }
+    .arlab  { font-size: 10.5px; fill: #6b7280; text-anchor: middle; }
+    .chip   { font-size: 11px; fill: #2b6cb0; }
+    .warn   { font-size: 11px; fill: #b42318; }
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="240" fill="#ffffff"/>
+
+  <!-- 手机 -->
+  <rect x="24" y="34" width="228" height="130" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="46" y="70">你的 App</text>
+  <text class="nodesub" x="46" y="92">debug 构建 · 零配置</text>
+  <rect x="44" y="108" width="86" height="26" rx="13" fill="#f7fafe" stroke="#cfe0f3"/>
+  <text class="chip" x="60" y="125">证书 0 个</text>
+  <text class="nodesub" x="46" y="152">pinning 不用绕</text>
+
+  <!-- 箭头：请求 -->
+  <line x1="256" y1="82" x2="352" y2="82" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="arlab" x="304" y="72">请求 · 明文</text>
+  <!-- 箭头：响应 -->
+  <line x1="352" y1="120" x2="256" y2="120" stroke="#2b6cb0" stroke-width="1.6" marker-end="url(#arG)"/>
+  <text class="arlab" x="304" y="140">响应 · 明文</text>
+
+  <!-- EasyCharles -->
+  <rect x="356" y="34" width="272" height="130" rx="14" fill="#f7fafe" stroke="#2b6cb0"/>
+  <text class="node" x="378" y="70" fill="#2b6cb0">EasyCharles</text>
+  <text class="nodesub" x="378" y="92">本机服务 · 记录每条请求</text>
+  <text class="code" x="378" y="116">127.0.0.1:8899</text>
+  <text class="nodesub" x="378" y="152">控制台实时刷新</text>
+
+  <!-- 箭头：转发 / 回来 -->
+  <line x1="632" y1="82" x2="728" y2="82" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="arlab" x="680" y="72">转发</text>
+  <line x1="728" y1="120" x2="632" y2="120" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="arlab" x="680" y="140">真实响应</text>
+
+  <!-- 服务器 -->
+  <rect x="732" y="34" width="244" height="130" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="754" y="70">真实服务器</text>
+  <text class="code" x="754" y="94">api.example.com</text>
+  <text class="nodesub" x="754" y="120">不用改任何东西</text>
+
+  <!-- 底部结论 -->
+  <line x1="24" y1="190" x2="976" y2="190" stroke="#f1f5f9"/>
+  <text class="chip" x="24" y="218">✓ 不用装根证书</text>
+  <text class="chip" x="188" y="218">✓ 不用改手机代理</text>
+  <text class="chip" x="352" y="218">✓ 证书绑定照样能看</text>
+  <text class="nodesub" x="700" y="218">代价：接一个 SDK（仅 debug 生效）</text>
+</svg>

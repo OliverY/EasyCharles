@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" width="1000" height="440" role="img"
+     aria-label="EasyCharles 三个面的分离：数据面、控制面、管理面各自的路径与鉴权">
+  <title>三个面必须分离</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .t      { font-size: 25px; font-weight: 700; fill: #0f172a; }
+    .sub    { font-size: 14px; fill: #6b7280; }
+    .path   { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 16px; font-weight: 700; }
+    .badge  { font-size: 11.5px; font-weight: 700; text-anchor: middle; }
+    .lab    { font-size: 11px; font-weight: 700; fill: #9aa3af; letter-spacing: 0.5px; }
+    .body   { font-size: 12px; fill: #374151; }
+    .foot   { font-size: 10.5px; fill: #9aa3af; }
+  </style>
+  <rect width="1000" height="440" fill="#ffffff"/>
+
+  <text class="t" x="36" y="48">三个面必须分离</text>
+  <text class="sub" x="36" y="76">路由按鉴权强度严格分三类，改动时不要越界 —— 这是安全模型的地基</text>
+
+  <!-- ── 数据面 ── -->
+  <rect x="36" y="104" width="293" height="292" rx="14" fill="#ffffff" stroke="#e4e7ec"/>
+  <path d="M50 104 h265 a14 14 0 0 1 14 14 v38 h-293 v-38 a14 14 0 0 1 14 -14 z" fill="#e8f1fb"/>
+  <text class="path" x="183" y="150" text-anchor="middle" fill="#2b6cb0">/__ec/p*</text>
+
+  <rect x="52" y="166" width="261" height="34" rx="8" fill="#fef6f5" stroke="#f3d3cf"/>
+  <text class="badge" x="182" y="188" fill="#b42318">不鉴权</text>
+
+  <text class="lab" x="54" y="228">职责</text>
+  <text class="body" x="54" y="250">· 无状态：转发 · 记录 · mock</text>
+  <text class="body" x="54" y="272">· 顺序 mock 与设备识别在此发生</text>
+  <text class="body" x="54" y="294">· 不得引入鉴权 / 存储 / 规则逻辑</text>
+
+  <text class="foot" x="54" y="340">ADR-015 刻意取舍：</text>
+  <text class="foot" x="54" y="358">为了 adb reverse 零暴露，默认仅回环</text>
+  <text class="foot" x="54" y="376">可及性完全由监听地址决定</text>
+
+  <!-- ── 控制面 ── -->
+  <rect x="353" y="104" width="293" height="292" rx="14" fill="#ffffff" stroke="#e4e7ec"/>
+  <path d="M367 104 h265 a14 14 0 0 1 14 14 v38 h-293 v-38 a14 14 0 0 1 14 -14 z" fill="#d6eefe"/>
+  <text class="path" x="500" y="150" text-anchor="middle" fill="#1d4ed8">/__ec/ws</text>
+
+  <rect x="369" y="166" width="261" height="34" rx="8" fill="#eef4ff" stroke="#c7d9f7"/>
+  <text class="badge" x="499" y="188" fill="#1d4ed8">SDK hello 免鉴权 · 控制台必填会话</text>
+
+  <text class="lab" x="371" y="228">职责</text>
+  <text class="body" x="371" y="250">· WebSocket 长连接</text>
+  <text class="body" x="371" y="272">· 注册 · 心跳 · 指令 · 推送</text>
+  <text class="body" x="371" y="294">· 推送按 deviceId → 手机号归属过滤</text>
+
+  <text class="foot" x="371" y="340">控制台 subscribe 校验失败 → close(4001)</text>
+  <text class="foot" x="371" y="358">控制面故障不影响数据面（ADR-003）</text>
+
+  <!-- ── 管理面 ── -->
+  <rect x="670" y="104" width="293" height="292" rx="14" fill="#ffffff" stroke="#e4e7ec"/>
+  <path d="M684 104 h265 a14 14 0 0 1 14 14 v38 h-293 v-38 a14 14 0 0 1 14 -14 z" fill="#fdf3dd"/>
+  <text class="path" x="817" y="150" text-anchor="middle" fill="#854f0b">/__ec/api/*</text>
+
+  <rect x="686" y="166" width="261" height="34" rx="8" fill="#fffdf5" stroke="#f0e0bd"/>
+  <text class="badge" x="816" y="188" fill="#854f0b">除 /login 外必填 X-EC-Session</text>
+
+  <text class="lab" x="688" y="228">职责</text>
+  <text class="body" x="688" y="250">· 控制台 API：登录 · 规则 · 设备绑定</text>
+  <text class="body" x="688" y="272">· 运行时校验输入（扛住脏数据）</text>
+  <text class="body" x="688" y="294">· /about 为纯静态文档页，与 / 同级免鉴权</text>
+
+  <text class="foot" x="688" y="340">控制台登录：手机号 + 全局口令</text>
+  <text class="foot" x="688" y="358">--password 默认 123456，共享网络必须改</text>
+
+  <!-- 底部 -->
+  <rect x="36" y="410" width="927" height="20" rx="6" fill="#f8fafc"/>
+  <text class="foot" x="48" y="425">改任何路由前先确认它属于哪个面；跨面逻辑一律视为 bug。</text>
+</svg>

@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="zh-CN" data-family="claude" data-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EasyCharles 控制台 · 统一样式系统 v2</title>
+<style>
+/* ============================================================================
+   EasyCharles Design Tokens v2
+   结构：家族（family）× 模式（mode）
+     family: claude（暖调/Claude Code 风） | cool（冷调数据台） | neon（终端霓虹）
+     mode:   light | dark
+   实现：html[data-family][data-mode] 决定整组值，组件只消费变量名
+   ========================================================================== */
+
+/* ---- 与主题无关的常量：间距 / 圆角 / 字体 / 字阶 ---- */
+:root {
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+
+  --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px; --r-full:999px;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-serif: Georgia, "Songti SC", "Times New Roman", var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --fs-micro:10px; --fs-xs:11px; --fs-sm:12px; --fs-md:13px;
+  --fs-lg:15px; --fs-xl:18px; --fs-2xl:22px; --fs-3xl:28px;
+
+  --lh-tight:1.3; --lh:1.6; --lh-loose:1.75;
+
+  --dur:.18s; --ease:cubic-bezier(.4,0,.2,1);
+
+  /* 布局常量 */
+  --topbar-h: 52px;
+  --sidebar-w: 400px;
+}
+
+/* ---- 色族 × 模式：全部取值集中在这里 ---- */
+
+/* 家族 1：Claude 暖调 */
+[data-family="claude"][data-mode="light"] {
+  --bg:#faf9f5; --bg-sunk:#f0eee6;
+  --panel:#ffffff; --panel-2:#f5f4ee; --panel-3:#ebe9e1;
+  --border:#e5e3da; --border-2:#d6d3c7; --border-strong:#c4c0b1;
+  --text:#141413; --text-2:#4b4a45; --muted:#7d7b74;
+  --accent:#c15f3c; --accent-hover:#a94e2f; --accent-soft:#f7e9e2; --accent-line:#e8c4b3;
+  --on-accent:#ffffff;
+  --sem-ok:#4f7a4a; --sem-warn:#9a6b1f; --sem-err:#b4442e;
+  --sem-ok-soft:#e9f0e6; --sem-warn-soft:#f7eed9; --sem-err-soft:#f9e8e3;
+  --mock:#6b5b95; --mock-soft:#ede9f5;
+  --stream:#3d6b78; --stream-soft:#e4eef1;
+  --code-bg:#f0eee6; --code-border:#e5e3da; --code-k:#2f5d8a; --code-s:#9a4a2c; --code-n:#6b5b95;
+  --sel-bg:#f7e9e2; --sel-bar:#c15f3c;
+  --hover:#f5f4ee;
+  --shadow-sm:0 1px 2px rgba(60,50,35,.05);
+  --shadow-md:0 4px 16px rgba(60,50,35,.07);
+  --shadow-lg:0 12px 40px rgba(60,50,35,.10);
+  --scrim:rgba(40,35,25,.28);
+}
+[data-family="claude"][data-mode="dark"] {
+  --bg:#262624; --bg-sunk:#1f1e1c;
+  --panel:#30302e; --panel-2:#383836; --panel-3:#414140;
+  --border:#514f4b; --border-2:#5f5d58; --border-strong:#75736d;
+  --text:#f5f4ef; --text-2:#d6d4cc; --muted:#9d9b93;
+  --accent:#d97757; --accent-hover:#e08a6d; --accent-soft:#3d2f28; --accent-line:#6b4a3a;
+  --on-accent:#1f1e1c;
+  --sem-ok:#8faf85; --sem-warn:#d6ab63; --sem-err:#e08a72;
+  --sem-ok-soft:#2f3629; --sem-warn-soft:#3a3222; --sem-err-soft:#3d2b26;
+  --mock:#a294cc; --mock-soft:#332f42;
+  --stream:#7ba7b5; --stream-soft:#26353a;
+  --code-bg:#1f1e1c; --code-border:#3d3c39; --code-k:#7ba7d0; --code-s:#e0a17e; --code-n:#a294cc;
+  --sel-bg:#3a2e27; --sel-bar:#d97757;
+  --hover:#383836;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.25);
+  --shadow-md:0 4px 18px rgba(0,0,0,.35);
+  --shadow-lg:0 14px 44px rgba(0,0,0,.45);
+  --scrim:rgba(0,0,0,.55);
+}
+
+/* 家族 2：冷调数据台（原 B） */
+[data-family="cool"][data-mode="light"] {
+  --bg:#f6f7f9; --bg-sunk:#eef0f3;
+  --panel:#ffffff; --panel-2:#f9fafb; --panel-3:#f2f4f7;
+  --border:#e4e7ec; --border-2:#d0d5dd; --border-strong:#b3b9c4;
+  --text:#101828; --text-2:#344054; --muted:#667085;
+  --accent:#2b6cb0; --accent-hover:#1f5286; --accent-soft:#e8f1fb; --accent-line:#a8dcc9;
+  --on-accent:#ffffff;
+  --sem-ok:#1f5286; --sem-warn:#b54708; --sem-err:#b42318;
+  --sem-ok-soft:#e3f5ee; --sem-warn-soft:#fdf2e3; --sem-err-soft:#fdeceb;
+  --mock:#6941c6; --mock-soft:#f4ebff;
+  --stream:#0e7490; --stream-soft:#e0f7fa;
+  --code-bg:#f9fafb; --code-border:#eaecf0; --code-k:#175cd3; --code-s:#b54708; --code-n:#6941c6;
+  --sel-bg:#f3f4f6; --sel-bar:#2b6cb0;
+  --hover:#f9fafb;
+  --shadow-sm:0 1px 2px rgba(16,24,40,.05);
+  --shadow-md:0 4px 14px rgba(16,24,40,.08);
+  --shadow-lg:0 12px 40px rgba(16,24,40,.12);
+  --scrim:rgba(16,24,40,.32);
+}
+[data-family="cool"][data-mode="dark"] {
+  --bg:#0f131c; --bg-sunk:#0b0e14;
+  --panel:#161c29; --panel-2:#1c2331; --panel-3:#232c3d;
+  --border:#2d3648; --border-2:#3a4459; --border-strong:#4d5872;
+  --text:#e6edf3; --text-2:#b6c0cd; --muted:#79839a;
+  --accent:#4f8cff; --accent-hover:#7cb0ff; --accent-soft:rgba(79,140,255,.14); --accent-line:rgba(79,140,255,.42);
+  --on-accent:#ffffff;
+  --sem-ok:#3fb950; --sem-warn:#d29922; --sem-err:#f85149;
+  --sem-ok-soft:rgba(63,185,80,.14); --sem-warn-soft:rgba(210,153,34,.14); --sem-err-soft:rgba(248,81,73,.14);
+  --mock:#a371f7; --mock-soft:rgba(163,113,247,.14);
+  --stream:#39c5cf; --stream-soft:rgba(57,197,207,.14);
+  --code-bg:#0c1017; --code-border:#1c2331; --code-k:#7cb0ff; --code-s:#e3b341; --code-n:#a371f7;
+  --sel-bg:rgba(79,140,255,.12); --sel-bar:#4f8cff;
+  --hover:#1c2331;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+  --shadow-md:0 4px 18px rgba(0,0,0,.45);
+  --shadow-lg:0 14px 44px rgba(0,0,0,.55);
+  --scrim:rgba(0,0,0,.6);
+}
+
+/* 家族 3：终端霓虹 */
+[data-family="neon"][data-mode="light"] {
+  --bg:#eef1ec; --bg-sunk:#e2e7e0;
+  --panel:#f7faf6; --panel-2:#eaf0e8; --panel-3:#dde5da;
+  --border:#c9d4c5; --border-2:#b0bfab; --border-strong:#95a890;
+  --text:#0d1a0e; --text-2:#2c4430; --muted:#5d7a63;
+  --accent:#00874a; --accent-hover:#00693a; --accent-soft:#d8f0e2; --accent-line:#8fc9ab;
+  --on-accent:#ffffff;
+  --sem-ok:#00874a; --sem-warn:#8a6100; --sem-err:#b02a2a;
+  --sem-ok-soft:#d8f0e2; --sem-warn-soft:#f5ecd2; --sem-err-soft:#f8dede;
+  --mock:#6d3fb5; --mock-soft:#e8defa;
+  --stream:#0a6a80; --stream-soft:#d9eef3;
+  --code-bg:#e9efe6; --code-border:#c9d4c5; --code-k:#00668f; --code-s:#8a4a1c; --code-n:#6d3fb5;
+  --sel-bg:#d8f0e2; --sel-bar:#00874a;
+  --hover:#eaf0e8;
+  --shadow-sm:0 1px 2px rgba(20,50,25,.06);
+  --shadow-md:0 4px 16px rgba(20,50,25,.08);
+  --shadow-lg:0 12px 40px rgba(20,50,25,.12);
+  --scrim:rgba(20,40,25,.3);
+}
+[data-family="neon"][data-mode="dark"] {
+  --bg:#070b08; --bg-sunk:#050806;
+  --panel:#0c130e; --panel-2:#111a13; --panel-3:#16211a;
+  --border:#1a2b1f; --border-2:#26402d; --border-strong:#37573f;
+  --text:#c4f5d2; --text-2:#8fdcab; --muted:#4f7d5e;
+  --accent:#00ff9c; --accent-hover:#5cffbe; --accent-soft:rgba(0,255,156,.10); --accent-line:rgba(0,255,156,.35);
+  --on-accent:#04150b;
+  --sem-ok:#00ff9c; --sem-warn:#ffcc00; --sem-err:#ff4d4d;
+  --sem-ok-soft:rgba(0,255,156,.10); --sem-warn-soft:rgba(255,204,0,.10); --sem-err-soft:rgba(255,77,77,.10);
+  --mock:#c77dff; --mock-soft:rgba(199,125,255,.12);
+  --stream:#00d9ff; --stream-soft:rgba(0,217,255,.12);
+  --code-bg:#060a07; --code-border:#16251b; --code-k:#00d9ff; --code-s:#ffcc00; --code-n:#c77dff;
+  --sel-bg:rgba(0,255,156,.09); --sel-bar:#00ff9c;
+  --hover:#111a13;
+  --shadow-sm:0 0 0 1px rgba(0,255,156,.06);
+  --shadow-md:0 0 24px rgba(0,255,156,.10);
+  --shadow-lg:0 0 48px rgba(0,255,156,.16);
+  --scrim:rgba(0,0,0,.65);
+}
+[data-family="neon"][data-mode="dark"] .glow { box-shadow:0 0 8px rgba(0,255,156,.4); }
+
+/* ============================================================================
+   Base
+   ========================================================================== */
+* { box-sizing:border-box; }
+html, body { margin:0; padding:0; }
+body {
+  font: var(--fs-md)/var(--lh) var(--font-sans);
+  background: var(--bg); color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+code { font-family: var(--font-mono); font-size: .92em;
+  background: var(--panel-3); padding: 1px 5px; border-radius: var(--r-xs); }
+
+/* Demo 外壳 */
+.shell { max-width:1360px; margin:0 auto; padding: var(--sp-8) var(--sp-6) 96px; }
+.hd { margin-bottom: var(--sp-6); }
+.hd .eyebrow {
+  font: 600 var(--fs-micro)/1 var(--font-mono); letter-spacing:.16em; text-transform:uppercase;
+  color: var(--accent); margin-bottom: var(--sp-3); display:block;
+}
+.hd h1 { font: 400 var(--fs-3xl)/1.2 var(--font-serif); margin:0 0 var(--sp-2); letter-spacing:-.01em; }
+.hd p { margin:0; color: var(--muted); max-width: 72ch; }
+.sec { margin-top: var(--sp-8); }
+.sec > h2 { font: 400 var(--fs-xl)/1.3 var(--font-serif); margin:0 0 var(--sp-1); }
+.sec > .sub { color: var(--muted); font-size: var(--fs-sm); margin:0 0 var(--sp-4); max-width:80ch; }
+.serif { font-family: var(--font-serif); }
+
+/* 主题控制器 */
+.ctrl {
+  position: sticky; top:12px; z-index:60;
+  display:flex; align-items:center; gap: var(--sp-4); flex-wrap:wrap;
+  padding: var(--sp-3) var(--sp-4);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border:1px solid var(--border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+}
+.ctrl-group { display:flex; align-items:center; gap: var(--sp-2); }
+.ctrl-group > .lb { font: 600 var(--fs-micro)/1 var(--font-mono); letter-spacing:.1em;
+  text-transform:uppercase; color: var(--muted); margin-right: var(--sp-1); }
+.opt {
+  font: 500 var(--fs-sm)/1 var(--font-sans); cursor:pointer;
+  padding: 7px 12px; border-radius: var(--r-sm);
+  border:1px solid transparent; background:transparent; color: var(--muted);
+  display:inline-flex; align-items:center; gap:7px; transition: all var(--dur) var(--ease);
+}
+.opt:hover { background: var(--hover); color: var(--text); }
+.opt[aria-pressed="true"] {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: var(--accent-line); font-weight:600;
+}
+.opt .pip { width:12px; height:12px; border-radius:var(--r-xs); flex:none; border:1px solid rgba(128,128,128,.3); }
+.ctrl-sep { width:1px; height:24px; background: var(--border); }
+
+/* ============================================================================
+   控制台界面
+   ========================================================================== */
+.console {
+  position:relative;
+  display:flex; flex-direction:column; height: 660px; overflow:hidden;
+  background: var(--panel);
+  border:1px solid var(--border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+[data-family="neon"][data-mode="dark"] .console::after {
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:5;
+  background: repeating-linear-gradient(180deg, rgba(0,255,156,.02) 0 1px, transparent 1px 3px);
+}
+
+/* 顶栏 */
+.topbar {
+  height: var(--topbar-h); flex:none;
+  display:flex; align-items:center; gap: var(--sp-3);
+  padding: 0 var(--sp-4);
+  background: var(--panel); border-bottom:1px solid var(--border);
+}
+.brand { display:flex; align-items:center; gap: var(--sp-2); }
+.brand .mark {
+  width:26px; height:26px; border-radius: var(--r-sm); flex:none;
+  background: var(--accent); color: var(--on-accent);
+  display:grid; place-items:center;
+  font: 700 var(--fs-micro)/1 var(--font-mono); letter-spacing:.02em;
+}
+[data-family="neon"][data-mode="dark"] .brand .mark { box-shadow:0 0 10px rgba(0,255,156,.45); }
+.brand .txt { font: 400 var(--fs-lg)/1 var(--font-serif); letter-spacing:.01em; }
+.brand .ver { font: var(--fs-micro)/1 var(--font-mono); color: var(--muted);
+  padding: 3px 5px; background: var(--panel-3); border-radius: var(--r-xs); }
+
+.chip {
+  display:inline-flex; align-items:center; gap:6px;
+  font: var(--fs-xs)/1 var(--font-mono); color: var(--muted);
+  padding: 5px var(--sp-2); border-radius: var(--r-sm);
+  background: var(--panel-2); border:1px solid var(--border);
+}
+.chip.ghost { background:transparent; border-color:transparent; padding-left:0; }
+.dot { width:7px; height:7px; border-radius:50%; background: var(--border-strong); flex:none; }
+.dot.on { background: var(--sem-ok); box-shadow:0 0 0 3px color-mix(in srgb, var(--sem-ok) 20%, transparent); }
+.grow { flex:1; }
+.tally { font: var(--fs-xs)/1 var(--font-mono); color: var(--muted); }
+
+/* 按钮 */
+.btn {
+  font: 500 var(--fs-sm)/1 var(--font-sans); cursor:pointer;
+  padding: 7px 12px; border-radius: var(--r-sm);
+  border:1px solid var(--border-2); background: var(--panel); color: var(--text-2);
+  transition: all var(--dur) var(--ease); white-space:nowrap;
+}
+.btn:hover { border-color: var(--border-strong); background: var(--panel-2); color: var(--text); }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight:600; }
+.btn.pri:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--on-accent); }
+.btn.ghost { background:transparent; border-color:transparent; color: var(--muted); }
+.btn.ghost:hover { background: var(--hover); color: var(--text); }
+.btn.sm { padding: 5px 9px; font-size: var(--fs-xs); }
+.btn.danger { color: var(--sem-err); border-color: color-mix(in srgb, var(--sem-err) 35%, var(--border)); }
+.btn.danger:hover { background: var(--sem-err-soft); border-color: var(--sem-err); color: var(--sem-err); }
+.btn[disabled] { opacity:.45; cursor:not-allowed; pointer-events:none; }
+
+/* 主体 */
+.main { flex:1; display:flex; min-height:0; }
+
+/* 左栏 */
+.side {
+  width: var(--sidebar-w); flex:none; display:flex; flex-direction:column;
+  background: var(--panel); border-right:1px solid var(--border);
+}
+.bound {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--accent-soft); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap: var(--sp-2);
+}
+.bound .nm { font-size: var(--fs-sm); font-weight:600; flex:1; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.blk { padding: var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border); }
+.blk-t {
+  font: 600 var(--fs-micro)/1 var(--font-sans); letter-spacing:.09em; text-transform:uppercase;
+  color: var(--muted); margin-bottom: var(--sp-2);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.blk-t .n { font-family: var(--font-mono); letter-spacing:0; text-transform:none; }
+
+.devs { display:flex; flex-direction:column; gap:2px; }
+.dev {
+  display:flex; align-items:center; gap: var(--sp-2);
+  padding: 7px var(--sp-2); border-radius: var(--r-sm);
+  font-size: var(--fs-sm); cursor:pointer; transition: background var(--dur) var(--ease);
+}
+.dev:hover { background: var(--hover); }
+.dev.active { background: var(--sel-bg); }
+.dev .nm { font-weight:550; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dev .os { font: var(--fs-micro)/1 var(--font-mono); color: var(--muted); flex:none; }
+.dev .act { flex:none; display:flex; gap:4px; opacity:0; transition: opacity var(--dur) var(--ease); }
+.dev:hover .act, .dev.active .act { opacity:1; }
+
+/* 标签 */
+.tag {
+  font: 600 var(--fs-micro)/1 var(--font-sans); letter-spacing:.02em;
+  padding: 4px 6px; border-radius: var(--r-xs); flex:none;
+  background: var(--panel-3); color: var(--muted);
+}
+.tag.own { background: var(--accent-soft); color: var(--accent); }
+.tag.free { background: var(--stream-soft); color: var(--stream); }
+.tag.busy { background: var(--panel-3); color: var(--muted); }
+.tag.mock { background: var(--mock-soft); color: var(--mock); }
+.tag.stream { background: var(--stream-soft); color: var(--stream); }
+
+/* 过滤 */
+.filters { padding: var(--sp-3) var(--sp-4); border-bottom:1px solid var(--border);
+  display:flex; flex-direction:column; gap: var(--sp-2); }
+.inp {
+  width:100%; font: var(--fs-sm)/1 var(--font-sans); padding: 8px 10px;
+  border:1px solid var(--border-2); border-radius: var(--r-sm);
+  background: var(--bg-sunk); color: var(--text); min-width:0;
+  transition: all var(--dur) var(--ease);
+}
+.inp::placeholder { color: var(--muted); }
+.inp:focus { outline:none; border-color: var(--accent); background: var(--panel);
+  box-shadow: 0 0 0 3px var(--accent-soft); }
+.seg { display:flex; gap:2px; padding:3px; background: var(--bg-sunk);
+  border:1px solid var(--border); border-radius: var(--r-sm); }
+.seg span {
+  flex:1; text-align:center; font: 500 var(--fs-xs)/1 var(--font-mono);
+  padding: 6px 4px; border-radius: var(--r-xs); color: var(--muted); cursor:pointer;
+}
+.seg span.on { background: var(--panel); color: var(--text); font-weight:600; box-shadow: var(--shadow-sm); }
+
+/* 列表 */
+.rows { flex:1; overflow:auto; }
+.row {
+  display:flex; align-items:center; gap: var(--sp-2);
+  padding: 7px var(--sp-4); cursor:pointer; font-size: var(--fs-sm);
+  border-bottom:1px solid var(--border); border-left: 3px solid transparent;
+  transition: background var(--dur) var(--ease);
+}
+.row:hover { background: var(--hover); }
+.row.active { background: var(--sel-bg); border-left-color: var(--sel-bar); }
+.m {
+  font: 700 var(--fs-micro)/1 var(--font-mono); letter-spacing:.03em;
+  width:40px; flex:none; padding:5px 0; border-radius: var(--r-xs); text-align:center;
+}
+.m.GET{ color:#1b6ec2; background:#e8f1fb; }
+.m.POST{ color:#12734b; background:#e4f4ec; }
+.m.PUT{ color:#9a5c11; background:#fbf0dc; }
+.m.DELETE{ color:#b13b26; background:#fbe9e3; }
+.m.PATCH{ color:#5f4ba3; background:#ece8f8; }
+[data-family="cool"][data-mode="dark"] .m.GET{ color:#7cb0ff; background:rgba(79,140,255,.14); }
+[data-family="cool"][data-mode="dark"] .m.POST{ color:#5ed6a0; background:rgba(63,185,80,.14); }
+[data-family="cool"][data-mode="dark"] .m.PUT { color:#e3b341; background:rgba(210,153,34,.14); }
+[data-family="cool"][data-mode="dark"] .m.DELETE{ color:#ff8078; background:rgba(248,81,73,.14); }
+[data-family="cool"][data-mode="dark"] .m.PATCH{ color:#c4a2ff; background:rgba(163,113,247,.14); }
+[data-family="neon"][data-mode="dark"] .m { background:transparent; }
+[data-family="neon"][data-mode="dark"] .m.GET{ color:#00ff9c; } [data-family="neon"][data-mode="dark"] .m.POST{ color:#00d9ff; }
+[data-family="neon"][data-mode="dark"] .m.PUT { color:#ffcc00; } [data-family="neon"][data-mode="dark"] .m.DELETE{ color:#ff4d4d; }
+[data-family="neon"][data-mode="dark"] .m.PATCH{ color:#c77dff; }
+[data-family="claude"][data-mode="dark"] .m.GET{ color:#7ba7d0; background:#28353f; }
+[data-family="claude"][data-mode="dark"] .m.POST{ color:#8fbb95; background:#283a2c; }
+[data-family="claude"][data-mode="dark"] .m.PUT { color:#d3a866; background:#3a3222; }
+[data-family="claude"][data-mode="dark"] .m.DELETE{ color:#e08a72; background:#3d2b26; }
+[data-family="claude"][data-mode="dark"] .m.PATCH{ color:#a294cc; background:#332f42; }
+
+.st { font: 700 var(--fs-xs)/1 var(--font-mono); width:26px; flex:none; }
+.st.s2 { color: var(--sem-ok); } .st.s3 { color: var(--sem-warn); }
+.st.s4 { color: var(--sem-warn); } .st.s5 { color: var(--sem-err); }
+.p { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font: var(--fs-xs)/1.4 var(--font-mono); color: var(--text-2); }
+.ms { font: var(--fs-micro)/1 var(--font-mono); color: var(--muted); flex:none; }
+.ms.slow { color: var(--sem-warn); font-weight:600; }
+
+/* 详情 */
+.detail { flex:1; overflow:auto; padding: var(--sp-5) var(--sp-6); background: var(--bg); }
+.dhead { display:flex; align-items:flex-start; gap: var(--sp-3); margin-bottom: var(--sp-5);
+  padding-bottom: var(--sp-4); border-bottom:1px solid var(--border); }
+.dhead .u { flex:1; min-width:0; }
+.dhead .t { font: 500 var(--fs-lg)/1.45 var(--font-mono); color: var(--text); word-break:break-all; }
+.dhead .s { font: var(--fs-xs)/1.7 var(--font-mono); color: var(--muted); margin-top: var(--sp-1); }
+.dhead .acts { display:flex; gap: var(--sp-2); flex:none; }
+
+.card {
+  background: var(--panel); border:1px solid var(--border);
+  border-radius: var(--r-md); margin-bottom: var(--sp-4); overflow:hidden;
+}
+.card > header {
+  display:flex; align-items:center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4); min-height:38px;
+  background: var(--panel-2); border-bottom:1px solid var(--border);
+}
+.card > header h3 { margin:0; font: 600 var(--fs-sm)/1 var(--font-sans); letter-spacing:.01em; }
+.card > header .rt { margin-left:auto; display:flex; align-items:center; gap: var(--sp-2);
+  font: var(--fs-micro)/1 var(--font-mono); color: var(--muted); }
+.card .bd { padding: var(--sp-3) var(--sp-4); }
+.card.tabs > header { padding:0 var(--sp-4); gap: var(--sp-4); }
+.card.tabs > header h3 { display:none; }
+.card.tabs > header .tb { padding: var(--sp-3) 0; font: 500 var(--fs-sm)/1 var(--font-sans);
+  color: var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+.card.tabs > header .tb.on { color: var(--text); border-bottom-color: var(--accent); font-weight:600; }
+
+.kv { width:100%; border-collapse:collapse; font: var(--fs-xs)/1.75 var(--font-mono); }
+.kv td { padding: 3px 0; vertical-align:top; border-bottom:1px solid var(--border); }
+.kv tr:last-child td { border-bottom:0; }
+.kv td:first-child { width: 190px; color: var(--muted); padding-right: var(--sp-3); }
+.kv td:last-child { color: var(--text-2); word-break:break-all; }
+pre.code {
+  margin:0; padding: var(--sp-3); border-radius: var(--r-sm);
+  background: var(--code-bg); border:1px solid var(--code-border);
+  font: var(--fs-xs)/var(--lh-loose) var(--font-mono); color: var(--text-2);
+  white-space:pre-wrap; word-break:break-all; max-height:200px; overflow:auto;
+}
+pre.code .k { color: var(--code-k); font-weight:500; }
+pre.code .s { color: var(--code-s); }
+pre.code .n { color: var(--code-n); }
+pre.code .c { color: var(--muted); font-style:italic; }
+
+/* 规则抽屉（局部展示） */
+.drawer-demo {
+  margin-top: var(--sp-4); background: var(--panel);
+  border:1px solid var(--border); border-radius: var(--r-md); overflow:hidden;
+  box-shadow: var(--shadow-md);
+}
+.drawer-demo > header { display:flex; align-items:center; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4); background: var(--panel-2); border-bottom:1px solid var(--border); }
+.drawer-demo > header h3 { margin:0; font: 400 var(--fs-lg)/1 var(--font-serif); }
+.drawer-demo > header .rt { margin-left:auto; font: var(--fs-xs)/1 var(--font-mono); color: var(--muted); }
+.drawer-demo .bd { padding: var(--sp-4); display:grid; gap: var(--sp-3); grid-template-columns: 1fr 1fr; }
+.rule {
+  border:1px solid var(--border); border-radius: var(--r-sm); padding: var(--sp-3);
+  background: var(--bg-sunk); font: var(--fs-xs)/1.6 var(--font-mono);
+}
+.rule .hd { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.rule .hd b { color: var(--text); font-weight:600; }
+.rule .ln { color: var(--muted); }
+
+/* Toast */
+.toast {
+  display:inline-flex; align-items:center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm);
+  background: var(--panel); border:1px solid var(--border);
+  box-shadow: var(--shadow-md); font-size: var(--fs-sm);
+}
+.toast .dot { width:7px;height:7px; }
+
+/* ============================================================================
+   说明区块
+   ========================================================================== */
+.box {
+  background: var(--panel); border:1px solid var(--border);
+  border-radius: var(--r-lg); padding: var(--sp-5); box-shadow: var(--shadow-sm);
+}
+.grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(228px,1fr)); gap: var(--sp-3); }
+.chip2 { border:1px solid var(--border); border-radius: var(--r-md); overflow:hidden; }
+.chip2 .sw { height:58px; }
+.chip2 .nm { padding:8px 10px; background: var(--panel-2); }
+.chip2 .nm b { display:block; font: 600 var(--fs-xs)/1.5 var(--font-mono); }
+.chip2 .nm span { font: var(--fs-micro)/1.5 var(--font-mono); color: var(--muted); }
+
+.rowline { display:flex; align-items:baseline; gap: var(--sp-4); padding: 9px 0;
+  border-bottom:1px dashed var(--border); }
+.rowline:last-child { border-bottom:0; }
+.rowline .mt { width:200px; flex:none; font: var(--fs-micro)/1.6 var(--font-mono); color: var(--muted); }
+.comp { display:flex; flex-wrap:wrap; align-items:center; gap: var(--sp-3); padding: var(--sp-3) 0;
+  border-bottom:1px dashed var(--border); }
+.comp:last-child { border-bottom:0; }
+.comp .lbl { width:84px; flex:none; font: var(--fs-micro)/1 var(--font-mono); color: var(--muted); }
+
+table.cmp { width:100%; border-collapse:collapse; font-size: var(--fs-sm); }
+table.cmp th, table.cmp td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+table.cmp th { font: 600 var(--fs-xs)/1.4 var(--font-sans); color: var(--muted);
+  letter-spacing:.05em; text-transform:uppercase; }
+table.cmp td:first-child { font-weight:600; white-space:nowrap; }
+table.cmp tr:last-child td { border-bottom:0; }
+table.cmp .y { color: var(--sem-ok); font-weight:600; }
+table.cmp .m { color: var(--sem-warn); font-weight:600; }
+
+.notes { margin:0; padding-left:20px; color: var(--text-2); font-size: var(--fs-sm); line-height:1.9; }
+.notes li::marker { color: var(--accent); }
+.kvlist { display:grid; grid-template-columns:auto 1fr; gap:6px var(--sp-4);
+  font: var(--fs-xs)/1.7 var(--font-mono); margin:0; }
+.kvlist dt { color: var(--muted); }
+.kvlist dd { margin:0; color: var(--text-2); }
+
+@media (max-width: 1080px){
+  .drawer-demo .bd { grid-template-columns: 1fr; }
+  :root { --sidebar-w: 330px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hd">
+    <span class="eyebrow">EasyCharles Console · Design System v2</span>
+    <h1>统一样式系统 + 三套色族 · 明暗双模式</h1>
+    <p>所有组件只消费语义变量名，主题由 <code>data-family</code> × <code>data-mode</code> 两个属性决定。
+       换主题 = 换一组变量值，HTML 结构与组件 CSS 一行都不改。Claude Code 那一族按暖米底 + 陶土橙 + 衬线标题还原。</p>
+  </header>
+
+  <div class="ctrl">
+    <div class="ctrl-group">
+      <span class="lb">色族</span>
+      <button class="opt" data-family="claude" aria-pressed="true"><i class="pip" style="background:linear-gradient(135deg,#faf9f5,#c15f3c)"></i>Claude 暖调</button>
+      <button class="opt" data-family="cool" aria-pressed="false"><i class="pip" style="background:linear-gradient(135deg,#f6f7f9,#2b6cb0)"></i>冷调数据台</button>
+      <button class="opt" data-family="neon" aria-pressed="false"><i class="pip" style="background:linear-gradient(135deg,#070b08,#00ff9c)"></i>终端霓虹</button>
+    </div>
+    <div class="ctrl-sep"></div>
+    <div class="ctrl-group">
+      <span class="lb">模式</span>
+      <button class="opt" data-mode="light" aria-pressed="true">☀ 明亮</button>
+      <button class="opt" data-mode="dark" aria-pressed="false">☾ 深夜</button>
+    </div>
+    <div class="ctrl-sep"></div>
+    <div class="ctrl-group">
+      <button class="opt" id="btn-follow" aria-pressed="false">◐ 跟随系统</button>
+    </div>
+  </div>
+
+  <!-- 完整界面 -->
+  <section class="sec">
+    <h2>完整控制台</h2>
+    <p class="sub">顶栏 / 左栏设备与请求 / 右侧详情 / 规则抽屉。结构与现有 index.html 一致，视觉全部走 token。</p>
+    <div class="console">
+      <header class="topbar">
+        <span class="brand">
+          <span class="mark">EC</span>
+          <span class="txt">EasyCharles</span>
+          <span class="ver">v0.4 · p2</span>
+        </span>
+        <span class="chip"><span class="dot on"></span>127.0.0.1:8899 · 回环</span>
+        <span class="grow"></span>
+        <span class="tally">28 条 · 2 台</span>
+        <span class="chip"><span class="dot on"></span>WS</span>
+        <button class="btn">规则</button>
+        <button class="btn ghost">退出</button>
+      </header>
+
+      <div class="main">
+        <aside class="side">
+          <div class="bound">
+            <span class="dot on"></span>
+            <span class="nm">Xiaomi 14 · Android 15 · u_10231</span>
+            <button class="btn sm danger">解绑</button>
+          </div>
+
+          <div class="blk">
+            <div class="blk-t"><span>设备</span><span class="n">2 在线 / 3</span></div>
+            <div class="devs">
+              <div class="dev active">
+                <span class="dot on"></span><span class="nm">Xiaomi 14</span><span class="os">15</span>
+                <span class="tag own">我的</span>
+                <span class="act"><button class="btn sm ghost">解绑</button></span>
+              </div>
+              <div class="dev">
+                <span class="dot on"></span><span class="nm">Pixel 8 Pro</span><span class="os">16</span>
+                <span class="tag free">未绑定</span>
+                <span class="act"><button class="btn sm pri">绑定</button></span>
+              </div>
+              <div class="dev">
+                <span class="dot"></span><span class="nm">iPhone 15</span><span class="os">18.1</span>
+                <span class="tag busy">已绑定 138…9</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="filters">
+            <input class="inp" placeholder="搜索 URL、状态码、mock">
+            <div class="seg"><span class="on">全部 28</span><span>2xx 21</span><span>mock 6</span><span>流式 2</span></div>
+          </div>
+
+          <div class="rows">
+            <div class="row active"><span class="m GET">GET</span><span class="st s2">200</span><span class="p">/v1/user/profile?id=10231</span><span class="ms">42ms</span></div>
+            <div class="row"><span class="m POST">POST</span><span class="st s2">200</span><span class="p">/v1/msg/send</span><span class="tag mock">mock</span><span class="ms">8ms</span></div>
+            <div class="row"><span class="m GET">GET</span><span class="st s2">200</span><span class="p">/v1/feed?cursor=8f2a</span><span class="tag stream">流式</span><span class="ms slow">1.2s</span></div>
+            <div class="row"><span class="m PUT">PUT</span><span class="st s4">429</span><span class="p">/v1/order/submit</span><span class="ms slow">320ms</span></div>
+            <div class="row"><span class="m GET">GET</span><span class="st s2">200</span><span class="p">/v1/im/token</span><span class="ms">18ms</span></div>
+            <div class="row"><span class="m DELETE">DELETE</span><span class="st s5">500</span><span class="p">/v1/notify/push</span><span class="ms">95ms</span></div>
+            <div class="row"><span class="m PATCH">PATCH</span><span class="st s2">200</span><span class="p">/v1/user/settings</span><span class="ms">61ms</span></div>
+            <div class="row"><span class="m GET">GET</span><span class="st s2">200</span><span class="p">/v1/feed/avatar</span><span class="ms">12ms</span></div>
+            <div class="row"><span class="m GET">GET</span><span class="st s3">304</span><span class="p">/v1/static/logo@2x.png</span><span class="tag stream">缓存</span><span class="ms">4ms</span></div>
+          </div>
+        </aside>
+
+        <section class="detail">
+          <div class="dhead">
+            <span class="m GET" style="width:50px;padding:6px 0;font-size:var(--fs-xs)">GET</span>
+            <div class="u">
+              <div class="t">https://api.easycharles.dev/v1/user/profile?id=10231</div>
+              <div class="s">请求 4 段 / 842 B · 响应 12 段 / 1.2 KB · 上游 http/1.1 · 协议 v2</div>
+            </div>
+            <div class="acts">
+              <span class="st s2" style="font-size:var(--fs-xl);width:auto;padding-right:4px">200</span>
+              <button class="btn">重放</button>
+              <button class="btn pri">存为 mock</button>
+            </div>
+          </div>
+
+          <div class="card tabs">
+            <header>
+              <span class="tb on">请求</span>
+              <span class="tb">响应</span>
+              <span class="tb">命中规则</span>
+              <span class="tb">时间线</span>
+              <span class="rt">协议 v2 · 12ms</span>
+            </header>
+            <div class="bd">
+              <table class="kv">
+                <tr><td>:method</td><td>GET</td></tr>
+                <tr><td>:path</td><td>/v1/user/profile</td></tr>
+                <tr><td>:authority</td><td>api.easycharles.dev</td></tr>
+                <tr><td>x-ec-device</td><td>ec-3f9a2b18-7c41-4d0e-9a55-1b2c3d4e5f60</td></tr>
+                <tr><td>x-ec-session</td><td>s_7f2a91c4</td></tr>
+                <tr><td>authorization</td><td>Bearer eyJhbGciOiJIUzI1NiIs…（已截断）</td></tr>
+                <tr><td>content-type</td><td>application/json</td></tr>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <header>
+              <h3>响应 Body</h3>
+              <div class="rt"><span class="tag stream">JSON</span><span>1.2 KB</span></div>
+            </header>
+            <div class="bd">
+<pre class="code">{
+  <span class="c">// x-ec-mock: mock-user-profile (seq 1/3)</span>
+  <span class="k">"code"</span>: <span class="n">0</span>,
+  <span class="k">"message"</span>: <span class="s">"ok"</span>,
+  <span class="k">"data"</span>: {
+    <span class="k">"id"</span>: <span class="n">10231</span>,
+    <span class="k">"nickname"</span>: <span class="s">"demo"</span>,
+    <span class="k">"avatar"</span>: <span class="s">"https://cdn.x.dev/a/10231.webp"</span>,
+    <span class="k">"vipLevel"</span>: <span class="n">3</span>,
+    <span class="k">"tags"</span>: [<span class="s">"android"</span>, <span class="s">"beta"</span>],
+    <span class="k">"quota"</span>: { <span class="k">"used"</span>: <span class="n">128</span>, <span class="k">"total"</span>: <span class="n">500</span> }
+  }
+}</pre>
+            </div>
+          </div>
+
+          <div class="card">
+            <header>
+              <h3>命中规则</h3>
+              <div class="rt"><span class="tag mock">mock-response</span><span>seq 1 / 3</span></div>
+            </header>
+            <div class="bd">
+              <table class="kv">
+                <tr><td>ruleId</td><td>mock-user-profile</td></tr>
+                <tr><td>match</td><td>api.easycharles.dev:443 · re:^/v1/user/.*</td></tr>
+                <tr><td>seqMode</td><td>in-order</td></tr>
+                <tr><td>pointer</td><td>(deviceId, sessionId) → 1</td></tr>
+                <tr><td>改写</td><td>json.vipLevel: 0 → 3</td></tr>
+                <tr><td>sign</td><td>已重算（header md5 → query）</td></tr>
+              </table>
+            </div>
+          </div>
+
+          <div class="drawer-demo">
+            <header>
+              <h3>规则</h3>
+              <span class="rt">3 条生效 · 命中 1</span>
+              <button class="btn sm">重置序列指针</button>
+              <button class="btn sm pri">保存</button>
+            </header>
+            <div class="bd">
+              <div class="rule">
+                <div class="hd"><span class="tag mock">mock</span><b>mock-user-profile</b><span class="ln">enabled</span></div>
+                <div class="ln">match · re:^/v1/user/.*</div>
+                <div class="ln">mode · sequence[3] → in-order</div>
+              </div>
+              <div class="rule">
+                <div class="hd"><span class="tag stream">rewrite</span><b>vip-upgrade</b><span class="ln">enabled</span></div>
+                <div class="ln">match · api.easycharles.dev:443</div>
+                <div class="ln">body · data.vipLevel = 3</div>
+              </div>
+              <div class="rule">
+                <div class="hd"><span class="tag" style="background:var(--sem-err-soft);color:var(--sem-err)">fault</span><b>order-timeout</b><span class="ln">disabled</span></div>
+                <div class="ln">match · re:^/v1/order/.*</div>
+                <div class="ln">action · delay 3000ms + reset</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-4)">
+            <span class="toast"><span class="dot on"></span>规则已保存 3 条</span>
+            <span class="toast"><span class="dot"></span>提示：host 需带端口，否则匹配不上</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- 六宫格 -->
+  <section class="sec">
+    <h2>六种组合一览</h2>
+    <p class="sub">同一套结构在 3 色族 × 2 模式下的样子。点任意一张直接切过去。</p>
+    <div class="grid" id="six"></div>
+  </section>
+
+  <!-- 色板 -->
+  <section class="sec">
+    <h2>语义色板</h2>
+    <p class="sub">角色固定不变，只有具体值随色族/模式变 —— 这是主题能只靠变量切换的关键。</p>
+    <div class="box">
+      <div class="grid">
+        <div class="chip2"><div class="sw" style="background:var(--bg)"></div><div class="nm"><b>--bg</b><span>画布 / 详情底</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--bg-sunk)"></div><div class="nm"><b>--bg-sunk</b><span>下沉面 / 输入框</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--panel)"></div><div class="nm"><b>--panel</b><span>卡片 / 面板</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--panel-2);border-bottom:1px solid var(--border)"></div><div class="nm"><b>--panel-2</b><span>表头 / 次级面</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--border)"></div><div class="nm"><b>--border</b><span>常规描边</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--border-2)"></div><div class="nm"><b>--border-2</b><span>控件描边</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--text)"></div><div class="nm"><b>--text</b><span>主文字</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--muted)"></div><div class="nm"><b>--muted</b><span>次要文字</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--accent)"></div><div class="nm"><b>--accent</b><span>主色 / 选中</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--sem-ok)"></div><div class="nm"><b>--sem-ok</b><span>2xx / 在线</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--sem-warn)"></div><div class="nm"><b>--sem-warn</b><span>3xx·4xx / 慢</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--sem-err)"></div><div class="nm"><b>--sem-err</b><span>5xx / 失败</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--mock)"></div><div class="nm"><b>--mock</b><span>mock 标记</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--stream)"></div><div class="nm"><b>--stream</b><span>流式 / 缓存</span></div></div>
+        <div class="chip2"><div class="sw" style="background:var(--code-bg);border-bottom:1px solid var(--border)"></div><div class="nm"><b>--code-bg</b><span>代码块底</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 字阶 -->
+  <section class="sec">
+    <h2>字阶与排版规则</h2>
+    <p class="sub">衬线只给标题，正文和 UI 全用无衬线；等宽只给需要逐字符比对的内容。这是 Claude 风格的关键混排比例。</p>
+    <div class="box">
+      <div class="rowline"><span class="mt">--fs-3xl / 28 / serif 400</span><span style="font:400 28px/1.2 var(--font-serif)">EasyCharles</span></div>
+      <div class="rowline"><span class="mt">--fs-xl / 18 / serif 400</span><span style="font:400 18px/1.3 var(--font-serif)">规则（JSON）</span></div>
+      <div class="rowline"><span class="mt">--fs-lg / 15 / serif 400</span><span style="font:400 15px/1.4 var(--font-serif)">Xiaomi 14 · Android 15</span></div>
+      <div class="rowline"><span class="mt">--fs-md / 13 / sans 400</span><span>设备名、正文、按钮 —— 界面基准字号</span></div>
+      <div class="rowline"><span class="mt">--fs-sm / 12 / sans 400</span><span style="font-size:12px">列表行、说明文字、时间戳</span></div>
+      <div class="rowline"><span class="mt">--fs-xs / 11 / mono</span><span style="font:11px var(--font-mono);color:var(--text-2)">/v1/user/profile?id=10231</span></div>
+      <div class="rowline"><span class="mt">--fs-micro / 10 / 700</span>
+        <span class="tag mock">mock</span> <span class="tag stream">流式</span>
+        <span style="font:10px var(--font-mono);color:var(--muted);margin-left:8px">METHOD / 耗时 / 分组标题</span>
+      </div>
+      <div style="margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px dashed var(--border)">
+        <ul class="notes">
+          <li>标题用衬线（<code>Georgia</code> 兜底），正文用系统无衬线 —— 这是最容易被忽略但最提升质感的一条</li>
+          <li>URL / header / body / 状态码 / 耗时 → 等宽，因为要按字符比对</li>
+          <li>中文正文不要上衬线，Georgia 没有中文字形会回退到系统衬线，混排会脏</li>
+          <li>方法徽章是唯一允许「无衬线加粗 + 浅底」的彩色元素，其他一律走语义色</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 组件 -->
+  <section class="sec">
+    <h2>组件</h2>
+    <p class="sub">现有界面里最容易不统一的地方，全部收敛到 token。</p>
+    <div class="box">
+      <div class="comp"><span class="lbl">按钮</span>
+        <button class="btn pri">主操作</button>
+        <button class="btn">次操作</button>
+        <button class="btn ghost">幽灵</button>
+        <button class="btn sm">小号</button>
+        <button class="btn danger">解绑</button>
+        <button class="btn" disabled>禁用</button>
+      </div>
+      <div class="comp"><span class="lbl">设备标签</span>
+        <span class="tag own">我的</span><span class="tag free">未绑定</span><span class="tag busy">已绑定 138…9</span>
+      </div>
+      <div class="comp"><span class="lbl">记录标签</span>
+        <span class="tag mock">mock</span><span class="tag stream">流式</span><span class="tag stream">缓存</span>
+      </div>
+      <div class="comp"><span class="lbl">方法</span>
+        <span class="m GET" style="width:50px;padding:6px 0">GET</span>
+        <span class="m POST" style="width:50px;padding:6px 0">POST</span>
+        <span class="m PUT" style="width:50px;padding:6px 0">PUT</span>
+        <span class="m DELETE" style="width:50px;padding:6px 0">DELETE</span>
+        <span class="m PATCH" style="width:50px;padding:6px 0">PATCH</span>
+      </div>
+      <div class="comp"><span class="lbl">状态码</span>
+        <span class="st s2" style="font-size:var(--fs-lg)">200</span>
+        <span class="st s3" style="font-size:var(--fs-lg)">304</span>
+        <span class="st s4" style="font-size:var(--fs-lg)">429</span>
+        <span class="st s5" style="font-size:var(--fs-lg)">500</span>
+        <span style="width:16px"></span>
+        <span class="dot on"></span><span class="dot"></span>
+      </div>
+      <div class="comp" style="align-items:stretch">
+        <span class="lbl" style="padding-top:9px">输入</span>
+        <input class="inp" placeholder="搜索 URL、状态码、mock" style="max-width:280px">
+      </div>
+      <div class="comp"><span class="lbl">分组标题</span>
+        <span class="blk-t" style="margin:0;flex:1"><span>设备</span><span class="n">2 在线 / 3</span></span>
+      </div>
+      <div class="comp"><span class="lbl">提示</span>
+        <span class="toast"><span class="dot on"></span>规则已保存 3 条</span>
+        <span class="toast"><span class="dot" style="background:var(--sem-warn)"></span>host 需带端口</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 落地 -->
+  <section class="sec">
+    <h2>对比与落地</h2>
+    <div class="box" style="padding:0;overflow:hidden">
+      <table class="cmp">
+        <thead><tr><th>维度</th><th>Claude 暖调</th><th>冷调数据台</th><th>终端霓虹</th></tr></thead>
+        <tbody>
+          <tr><td>气质</td><td>温暖 · 克制 · 有书卷气</td><td>中性 · 工程 · 干净</td><td>冷冽 · 极客 · 高对比</td></tr>
+          <tr><td>长时间盯列表</td><td class="y">好（暗色下接近米色灰阶）</td><td class="y">好</td><td class="y">好</td></tr>
+          <tr><td>长 JSON 精读</td><td class="y">最好（暖底不刺眼）</td><td class="y">好</td><td class="m">一般（荧光易晕）</td></tr>
+          <tr><td>截图进文档</td><td class="y">最好看</td><td class="m">偏素</td><td class="y">最好看</td></tr>
+          <tr><td>与现状改动量</td><td>中（换变量 + 标题加衬线）</td><td class="y">最小</td><td>大</td></tr>
+          <tr><td>明暗切换对比度</td><td class="y">两套都舒服</td><td class="m">亮色刺眼 / 暗色过冷</td><td class="m">亮色荧光失去意义</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box" style="margin-top:var(--sp-4)">
+      <h3 style="font:400 var(--fs-lg)/1.3 var(--font-serif);margin:0 0 var(--sp-3)">落地方式</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--sp-5)">
+        <div>
+          <p style="font:600 var(--fs-xs)/1 var(--font-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 var(--sp-3)">1 · 变量注入</p>
+          <ul class="notes">
+            <li>把 <code>:root</code> 拆成 6 组 <code>[data-family][data-mode]</code></li>
+            <li>常量（间距/圆角/字阶）与色值分离</li>
+            <li>组件 CSS 只写 <code>var(--xx)</code>，不出现字面色值</li>
+          </ul>
+        </div>
+        <div>
+          <p style="font:600 var(--fs-xs)/1 var(--font-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 var(--sp-3)">2 · 模式记忆</p>
+          <ul class="notes">
+            <li><code>localStorage['ec_theme']</code> 存 <code>family:mode</code></li>
+            <li>首次访问读 <code>prefers-color-scheme</code></li>
+            <li>加一行「跟随系统」选项，可覆盖默认值</li>
+          </ul>
+        </div>
+        <div>
+          <p style="font:600 var(--fs-xs)/1 var(--font-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 var(--sp-3)">3 · 结构增强</p>
+          <ul class="notes">
+            <li>详情区改「请求/响应/规则/时间线」四页签，长 JSON 不再无限拉长</li>
+            <li>搜索框加 mock / 流式筛选段</li>
+            <li>列表补 3xx 与「缓存」标签</li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin:var(--sp-4) 0 0;padding:var(--sp-3);background:var(--accent-soft);border-radius:var(--r-sm);
+                font-size:var(--fs-sm);color:var(--text-2);border-left:3px solid var(--accent)">
+        推荐组合：<b>默认 Claude 暖调 + 深夜</b>，明色作为跟随系统的白天模式；冷调保留为「经典」选项，
+        霓虹只留配色不做默认。调试工具使用时长以小时计，深夜做默认能显著减轻疲劳。
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const root = document.documentElement;
+let follow = false;
+
+const FAMILIES = {
+  claude: { label: 'Claude 暖调', pip: 'linear-gradient(135deg,#faf9f5,#c15f3c)' },
+  cool:   { label: '冷调数据台', pip: 'linear-gradient(135deg,#f6f7f9,#2b6cb0)' },
+  neon:   { label: '终端霓虹', pip: 'linear-gradient(135deg,#070b08,#00ff9c)' }
+};
+
+function apply(f, m){
+  root.setAttribute('data-family', f);
+  root.setAttribute('data-mode', m);
+  document.querySelectorAll('[data-family]').forEach(b => {
+    if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', String(b.dataset.family === f));
+  });
+  document.querySelectorAll('[data-mode]').forEach(b => {
+    if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', String(b.dataset.mode === m));
+  });
+  document.getElementById('btn-follow').setAttribute('aria-pressed', String(follow));
+  try { localStorage.setItem('ec_theme', JSON.stringify({ family: f, mode: m })); } catch (e) {}
+}
+
+// 六宫格：临时用内联样式渲染缩略，不污染当前主题
+function buildSix(){
+  const host = document.getElementById('six');
+  host.innerHTML = '';
+  Object.keys(FAMILIES).forEach(f => {
+    ['light','dark'].forEach(m => {
+      const cell = document.createElement('div');
+      cell.className = 'chip2';
+      cell.style.cursor = 'pointer';
+      cell.innerHTML =
+        '<div class="sw" style="display:flex;height:112px;padding:10px;gap:8px;' +
+          'background:' + (m==='light' ? (f==='claude'?'#faf9f5':f==='cool'?'#f6f7f9':'#eef1ec') : (f==='claude'?'#262624':f==='cool'?'#0f131c':'#070b08')) + '">' +
+          '<div style="width:34%;border-radius:6px;background:' + (m==='light' ? (f==='claude'?'#fff':f==='cool'?'#fff':'#f7faf6') : (f==='claude'?'#30302e':f==='cool'?'#161c29':'#0c130e')) +
+            ';border:1px solid ' + (m==='light' ? '#e5e3da' : '#514f4b') + ';padding:6px;display:flex;flex-direction:column;gap:4px">' +
+            '<div style="height:5px;border-radius:3px;background:' + (f==='claude'?'#c15f3c':f==='cool'?'#2b6cb0':'#00874a') + ';width:60%"></div>' +
+            '<div style="height:4px;border-radius:2px;background:' + (m==='light'?'#e5e3da':'#3d3c39') + '"></div>' +
+            '<div style="height:4px;border-radius:2px;background:' + (m==='light'?'#e5e3da':'#3d3c39') + ';width:80%"></div>' +
+            '<div style="flex:1"></div>' +
+            '<div style="height:4px;border-radius:2px;background:' + (m==='light'?'#e5e3da':'#3d3c39') + ';width:65%"></div>' +
+          '</div>' +
+          '<div style="flex:1;border-radius:6px;background:' + (m==='light' ? (f==='claude'?'#f0eee6':f==='cool'?'#f9fafb':'#e9efe6') : (f==='claude'?'#1f1e1c':f==='cool'?'#0c1017':'#060a07')) +
+            ';border:1px solid ' + (m==='light'?'#e5e3da':f==='claude'?'#3d3c39':'#1c2331') + ';padding:6px;display:flex;flex-direction:column;gap:4px">' +
+            '<div style="font:600 7px ui-monospace,monospace;color:' + (m==='light' ? (f==='claude'?'#9a4a2c':'#0e7490') : (f==='claude'?'#e0a17e':'#7cb0ff')) + '">/v1/user/profile</div>' +
+            '<div style="height:3px;border-radius:2px;background:' + (m==='light'?'#dcd9cf':'#2b2a28') + ';width:85%"></div>' +
+            '<div style="height:3px;border-radius:2px;background:' + (m==='light'?'#dcd9cf':'#2b2a28') + ';width:60%"></div>' +
+            '<div style="height:3px;border-radius:2px;background:' + (m==='light'?'#dcd9cf':'#2b2a28') + ';width:72%"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="nm"><b>' + FAMILIES[f].label + '</b><span>' + (m==='light'?'明亮 · light':'深夜 · dark') + '</span></div>';
+      cell.onclick = () => { follow = false; apply(f, m); };
+      host.appendChild(cell);
+    });
+  });
+}
+
+document.querySelectorAll('button[data-family]').forEach(b => b.onclick = () => { follow = false; apply(b.dataset.family, root.getAttribute('data-mode')); });
+document.querySelectorAll('button[data-mode]').forEach(b => b.onclick = () => { follow = false; apply(root.getAttribute('data-family'), b.dataset.mode); });
+document.getElementById('btn-follow').onclick = () => {
+  follow = !follow;
+  if (follow) {
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    apply(root.getAttribute('data-family'), dark ? 'dark' : 'light');
+  }
+  document.getElementById('btn-follow').setAttribute('aria-pressed', String(follow));
+};
+
+buildSix();
+
+// 恢复上次选择
+let saved = null;
+try { saved = JSON.parse(localStorage.getItem('ec_theme') || 'null'); } catch (e) {}
+if (saved && FAMILIES[saved.family] && ['light','dark'].includes(saved.mode)) {
+  apply(saved.family, saved.mode);
+} else {
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  apply('claude', dark ? 'dark' : 'light');
+}
+</script>
+</body>
+</html>

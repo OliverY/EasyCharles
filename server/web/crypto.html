@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EasyCharles 加解密配置</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #e4e7ec;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --accent: #2b6cb0;
+    --accent-soft: #e8f1fb;
+    --err: #a32d2d;
+    --warn: #8a5a00;
+    --ok: #2f6b3f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text); background: var(--bg);
+    display: flex; flex-direction: column;
+  }
+  button, select, input, textarea { font: inherit; }
+  button {
+    padding: 5px 12px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); border-radius: 6px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { opacity: .9; color: #fff; }
+  button.danger { color: var(--err); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input[type=text], input[type=password], input[type=number], select, textarea {
+    width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--panel); color: var(--text);
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 54px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .muted { color: var(--muted); font-size: 12px; }
+
+  .topbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .brand .sub { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .spacer { margin-left: auto; }
+
+  #login-view { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .login-card {
+    width: 340px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 26px 22px; box-shadow: 0 8px 30px rgba(0,0,0,.05);
+  }
+  .login-card h1 { font-size: 17px; margin: 0 0 4px; }
+  .login-card label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  .err { color: var(--err); font-size: 12px; min-height: 18px; margin-top: 8px; }
+
+  main { flex: 1; overflow: auto; padding: 16px 20px 60px; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  .banner {
+    padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px;
+    background: #fdf6e7; border: 1px solid #f0e2c4; color: var(--warn);
+  }
+  .banner.bad { background: #fdecec; border-color: #f3c9c9; color: var(--err); }
+  .banner.ok { background: #e7f5ec; border-color: #c6e5d2; color: var(--ok); }
+  section { margin-bottom: 20px; }
+  .sec-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+  .sec-head h2 { font-size: 14px; margin: 0; white-space: nowrap; }
+  .sec-head .muted { margin-left: 2px; flex: 1 1 auto; min-width: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--panel); }
+  table th {
+    text-align: left; color: var(--muted); font-weight: 400;
+    padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  table td { padding: 6px 8px; border-bottom: 1px solid #f1f2f4; vertical-align: middle; }
+  table tr:last-child td { border-bottom: none; }
+  .tbl-wrap { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--panel); }
+
+  .badge {
+    display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px;
+    background: var(--accent-soft); color: var(--accent); white-space: nowrap;
+  }
+  .badge.ok { background: #e7f5ec; color: var(--ok); }
+  .badge.warn { background: #fdf6e7; color: var(--warn); }
+  .badge.bad { background: #fdecec; color: var(--err); }
+  .badge.gray { background: #f1efe8; color: #5f5e5a; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 10px;
+  }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .card-head input.pname { width: 160px; }
+  .card-head select.pplugin { width: 210px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px 12px; }
+  .fld { display: flex; flex-direction: column; gap: 2px; }
+  .fld > label { font-size: 11px; color: var(--muted); }
+  .fld.inline { flex-direction: row; align-items: center; gap: 6px; }
+  .fld.inline > label { font-size: 12px; color: var(--text); }
+  .fld input[type=checkbox] { width: auto; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; font-size: 12px; color: var(--accent); }
+  .sub-grid { margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 12px; }
+  .test-row { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
+  .test-row textarea { flex: 1; }
+  .test-out { font-size: 12px; margin-top: 6px; white-space: pre-wrap; word-break: break-all; }
+  .test-out.ok { color: var(--ok); }
+  .test-out.bad { color: var(--err); }
+  .script-box { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  .script-box textarea { min-height: 190px; }
+  pre.code {
+    margin: 0; padding: 8px 10px; background: #f8f9fb; border: 1px solid var(--border);
+    border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px; line-height: 1.55; white-space: pre; overflow: auto; max-height: 300px; tab-size: 2;
+  }
+  @media (max-width: 720px) { .script-box { grid-template-columns: 1fr; } }
+  .foot { display: flex; align-items: center; gap: 8px; position: sticky; bottom: 0;
+    background: linear-gradient(to bottom, rgba(246,247,249,0), var(--bg) 40%); padding: 10px 0; }
+  .toast {
+    position: fixed; right: 18px; bottom: 18px; background: #1f2937; color: #fff;
+    padding: 8px 14px; border-radius: 8px; font-size: 12px; opacity: 0; transition: opacity .18s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .empty { color: var(--muted); padding: 18px; text-align: center; background: var(--panel);
+    border: 1px dashed var(--border); border-radius: 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header class="topbar" id="app-top" style="display:none">
+  <span class="brand">EasyCharles 加解密 <span class="sub" id="dir-sub"></span></span>
+  <span class="spacer"></span>
+  <span class="muted" id="who"></span>
+  <button id="btn-reload-plugins" title="重扫插件目录并重建插件实例">重新扫描插件</button>
+  <button class="primary" id="btn-save">保存全部</button>
+  <a href="/admin"><button id="btn-admin">管理控制台</button></a>
+  <button id="btn-logout">退出</button>
+</header>
+
+<div id="login-view">
+  <div class="login-card">
+    <h1>加解密配置</h1>
+    <p class="muted" style="margin:0 0 6px">与 EasyCharles 控制台共用同一会话。</p>
+    <label for="in-phone">手机号</label>
+    <input type="text" id="in-phone" placeholder="例如 13800138000" autocomplete="off">
+    <label for="in-pw">登录口令</label>
+    <input type="password" id="in-pw" placeholder="登录口令">
+    <div class="err" id="login-err"></div>
+    <button class="primary" id="btn-login" style="width:100%">登录</button>
+  </div>
+</div>
+
+<main id="main-view" style="display:none">
+  <div class="wrap" id="body-wrap">
+    <div class="banner">加载中…</div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+<datalist id="alg-list"></datalist>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { session: null, user: null, view: null, plugins: [], dir: '', dirExists: false, warnings: [], enabled: true };
+
+const BUILTIN = 'builtin';
+/** 内置引擎支持的算法。datalist 只做提示：真正的白名单在服务端，这里不重复实现一遍 */
+const ALGS = [
+  'aes-128-cbc','aes-192-cbc','aes-256-cbc',
+  'aes-128-ecb','aes-192-ecb','aes-256-ecb',
+  'aes-128-ctr','aes-192-ctr','aes-256-ctr',
+  'aes-128-cfb','aes-192-cfb','aes-256-cfb',
+  'aes-128-ofb','aes-192-ofb','aes-256-ofb',
+  'aes-128-gcm','aes-192-gcm','aes-256-gcm',
+  'chacha20-poly1305','des-ede3-cbc','sm4-cbc','sm4-ecb'
+];
+const KEY_ENCODINGS = ['utf8','base64','base64url','hex'];
+const CIPHER_ENCODINGS = ['base64','base64url','hex'];
+const WRAP_TYPES = ['raw','json','form'];
+
+function esc(s) {
+  return String(s === undefined || s === null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function apiFetch(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers || {}, state.session ? { 'X-EC-Session': state.session } : {});
+  return fetch(path, opts).then((res) => {
+    if (res.status === 401 && state.session) {
+      state.session = null;
+      localStorage.removeItem('ec_session');
+      showLogin();
+    }
+    return res;
+  });
+}
+
+function showLogin() {
+  $('login-view').style.display = 'flex';
+  $('main-view').style.display = 'none';
+  $('app-top').style.display = 'none';
+}
+function showApp() {
+  $('login-view').style.display = 'none';
+  $('main-view').style.display = 'block';
+  $('app-top').style.display = 'flex';
+  $('who').textContent = state.user ? state.user.phone : '';
+  $('dir-sub').textContent = state.dir ? state.dir + (state.dirExists ? '' : '（不存在）') : '';
+}
+
+async function doLogin() {
+  const phone = $('in-phone').value.trim();
+  const password = $('in-pw').value;
+  $('login-err').textContent = '';
+  if (!phone) { $('login-err').textContent = '请输入手机号'; return; }
+  const res = await fetch('/__ec/api/login', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ phone, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { $('login-err').textContent = data.message || '登录失败（HTTP ' + res.status + '）'; return; }
+  state.session = data.session;
+  state.user = data.user;
+  localStorage.setItem('ec_session', data.session);
+  void boot();
+}
+
+async function boot() {
+  if (!state.session) { showLogin(); return; }
+  const me = await apiFetch('/__ec/api/me');
+  if (!me.ok) { showLogin(); return; }
+  state.user = (await me.json()).user;
+  await loadAll();
+  showApp();
+}
+
+async function loadAll() {
+  const [vr, pr] = await Promise.all([apiFetch('/__ec/api/crypto'), apiFetch('/__ec/api/crypto/plugins')]);
+  if (!vr.ok) { $('body-wrap').innerHTML = '<div class="banner bad">读取密钥档失败（HTTP ' + vr.status + '）</div>'; return; }
+  state.view = await vr.json();
+  state.enabled = state.view.enabled !== false;
+  if (pr.ok) {
+    const p = await pr.json();
+    state.plugins = p.plugins || [];
+    state.dir = p.dir || '';
+    state.dirExists = !!p.dirExists;
+    state.scriptDir = p.scriptDir || '';
+    state.warnings = p.warnings || [];
+  }
+  render();
+}
+
+function render() {
+  const v = state.view || { profiles: [], routes: [] };
+  $('body-wrap').innerHTML =
+    (!state.enabled ? '<div class="banner bad">服务以 <code>--no-crypto</code> 启动，这里的配置不会生效。</div>' : '') +
+    (state.warnings.length ? '<div class="banner">' + state.warnings.map(esc).join('<br>') + '</div>' : '') +
+    sectionPlugins() +
+    sectionProfiles(v) +
+    sectionRoutes(v) +
+    '<div class="foot"><button class="primary" id="btn-save-2">保存全部</button>' +
+      '<span class="muted">保存会整体替换' + (v.profiles.length ? '（含全部 ' + v.profiles.length + ' 个密钥档）' : '') + '；打码值原样提交表示「不修改」。</span></div>';
+
+  $('btn-save-2').onclick = () => { void save(); };
+  bind();
+  void hydrateScripts();
+}
+
+function sectionPlugins() {
+  const rows = state.plugins.map((p) => {
+    const status = p.status === 'loaded'
+      ? '<span class="badge ok">已加载</span>'
+      : '<span class="badge bad">加载失败</span>';
+    // 「无隔离」不是装饰：in-process 的插件写个 while(true) 会卡死整个抓包服务，
+    // Promise.race 只能拦住不返回的异步。这条提示必须让人看得见（ADR-040 §6.1）。
+    const iso = p.isolation === 'worker'
+      ? '<span class="badge">worker</span>'
+      : '<span class="badge warn" title="进程内调用：拦不住同步死循环，只建议用于自己写的插件">无隔离</span>';
+    return '<tr>' +
+      '<td class="mono">' + esc(p.name) + (p.builtin ? ' <span class="badge gray">内置</span>' : '') +
+        (p.kind === 'script' ? ' <span class="badge gray">脚本</span>' : '') + '</td>' +
+      '<td>' + esc(p.title) + (p.error ? '<div class="muted" style="color:var(--err)">' + esc(p.error) + '</div>' : '') + '</td>' +
+      '<td class="mono">' + esc(p.version) + '</td>' +
+      '<td>' + iso + '</td>' +
+      '<td>' + status + '</td>' +
+      '<td>' + esc(String(p.usedBy || 0)) + ' 档</td>' +
+      '<td>' + (p.status === 'loaded'
+        ? '<button data-ptest="' + esc(p.name) + '">测试</button>'
+        : '<button disabled title="先修好加载错误">测试</button>') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  return '<section><div class="sec-head"><h2>插件</h2>' +
+    '<span class="muted">目录插件放 ' + esc(state.dir || '<dataDir>/plugins') +
+    '；单文件脚本放 ' + esc(state.scriptDir || '<dataDir>/crypto/scripts') +
+    '。改完点「重新扫描」生效，控制台不提供上传或在线编辑（LAN 管理面能写代码 = 远程代码执行入口）</span>' +
+    '</div><div class="tbl-wrap"><table><thead><tr>' +
+    '<th>名称</th><th>说明</th><th>版本</th><th>隔离</th><th>状态</th><th>被引用</th><th></th>' +
+    '</tr></thead><tbody>' + (rows || '<tr><td colspan="7" class="muted">没有插件</td></tr>') + '</tbody></table></div>' +
+    '<div id="ptest-panel"></div></section>';
+}
+
+/** 单个 schema 字段 → HTML。表单与测试面板共用，避免两处渲染逻辑漂移 */
+function schemaField(name, spec, value, idPrefix) {
+  const id = idPrefix + '-' + name;
+  const label = '<label for="' + esc(id) + '" title="' + esc(spec.description || '') + '">' + esc(spec.title || name) + '</label>';
+  const val = value === undefined || value === null ? (spec.default !== undefined ? spec.default : '') : value;
+  if (spec.type === 'boolean') {
+    return '<div class="fld inline"><input type="checkbox" id="' + esc(id) + '" data-opt="' + esc(name) + '" data-type="boolean"' +
+      (val === true ? ' checked' : '') + '><label for="' + esc(id) + '">' + esc(spec.title || name) + '</label></div>';
+  }
+  if (spec.enum && spec.enum.length) {
+    return '<div class="fld">' + label + '<select id="' + esc(id) + '" data-opt="' + esc(name) + '" data-type="' + esc(spec.type) + '">' +
+      spec.enum.map((x) => '<option value="' + esc(x) + '"' + (String(x) === String(val) ? ' selected' : '') + '>' + esc(x) + '</option>').join('') +
+      '</select></div>';
+  }
+  if (spec.type === 'integer' || spec.type === 'number') {
+    return '<div class="fld">' + label + '<input type="number" id="' + esc(id) + '" data-opt="' + esc(name) + '" data-type="' + esc(spec.type) + '"' +
+      (spec.minimum !== undefined ? ' min="' + esc(spec.minimum) + '"' : '') +
+      (spec.maximum !== undefined ? ' max="' + esc(spec.maximum) + '"' : '') +
+      ' value="' + esc(val) + '"></div>';
+  }
+  return '<div class="fld">' + label + '<input type="' + (spec.secret ? 'password' : 'text') + '" id="' + esc(id) + '" data-opt="' + esc(name) + '" data-type="string"' +
+    ' value="' + esc(val) + '" placeholder="' + esc(spec.secret ? '留空 = 沿用当前值' : '') + '" autocomplete="new-password"></div>';
+}
+
+/** 脚本插件：参数不是表单，而是一份自由 JSON + 一段只读代码 */
+function isScriptPlugin(plugin, name) {
+  return (plugin && plugin.kind === 'script') || String(name || '').startsWith('script:');
+}
+
+/**
+ * 脚本卡片的字段区。
+ *
+ * 为什么代码**只读**：控制台能写 .mjs = 持管理 token 就能执行任意代码，LAN 模式下
+ * 这就是一个远程代码执行入口。改代码只能在本机编辑数据目录里的文件，再点「重新扫描」。
+ */
+function scriptFields(p, plugin, cur) {
+  const opts = JSON.stringify(p.options || {}, null, 2);
+  const file = (plugin && plugin.file) || '';
+  const secrets = (plugin && plugin.secrets) || [];
+  return '<div class="script-box">' +
+    '<div class="fld"><label>脚本（只读）</label>' +
+      '<div class="muted mono" style="margin-bottom:4px">' + esc(file || '（这个脚本没加载成功，看不到源码）') + '</div>' +
+      '<pre class="code" data-script-view="' + esc(cur) + '">读取中…</pre>' +
+    '</div>' +
+    '<div class="fld"><label>参数（JSON，就是脚本里的 options）</label>' +
+      '<textarea class="mono" data-optjson rows="5" spellcheck="false">' + esc(opts) + '</textarea>' +
+      '<div class="muted" style="margin-top:4px">打码值原样保留 = 不修改。' +
+        (secrets.length ? '打码字段：' + secrets.map(esc).join('、') : '脚本没声明 <code>secrets</code>，整份参数都会打码') +
+      '</div>' +
+    '</div>' +
+    (plugin && plugin.status === 'error'
+      ? '<div class="banner bad" style="margin-top:8px">脚本没加载成功，保存会被拒绝：' + esc(plugin.error || '') + '</div>'
+      : '') +
+    '</div>';
+}
+
+/**
+ * 每个卡片位置放了一段代码，但源码要靠 API 取——放在 HTML 里会把整份脚本塞进 DOM，
+ * 每次重绘都多传一遍。`name` 已带 `script:` 前缀，这里去掉再请求。
+ */
+async function hydrateScripts() {
+  const nodes = document.querySelectorAll('[data-script-view]');
+  for (const el of nodes) {
+    const full = el.dataset.scriptView || '';
+    const name = full.startsWith('script:') ? full.slice('script:'.length) : full;
+    if (!name) continue;
+    const res = await apiFetch('/__ec/api/crypto/scripts/' + encodeURIComponent(name));
+    const d = await res.json().catch(() => ({}));
+    el.textContent = d.ok ? d.source : (d.error || ('HTTP ' + res.status));
+  }
+}
+
+function sectionProfiles(v) {
+  const cards = (v.profiles || []).map((p, i) => profileCard(p, i)).join('');
+  return '<section><div class="sec-head"><h2>密钥档</h2>' +
+    '<span class="muted">一个档 = 一套参数 + 密文位置；路由决定它管哪些接口</span>' +
+    '<span class="spacer"></span><button id="btn-add-profile">新增密钥档</button></div>' +
+    (cards || '<div class="empty">还没有密钥档。加密接口要显示明文，至少需要一个档 + 一条路由。</div>') +
+    '</section>';
+}
+
+/**
+ * 插件下拉的候选：已加载的插件 + 当前档正在用的那个（哪怕它加载失败了）。
+ *
+ * 少了后一半会出严重问题：profile 引用的插件没加载时，select 会退回第一项（builtin），
+ * 用户点一下保存就把这个档换成了内置引擎——密钥还在，算法全变了。
+ */
+function pluginChoices(current) {
+  const list = state.plugins.slice();
+  if (current && !list.some((p) => p.name === current)) {
+    list.push({ name: current, title: '（未加载）', builtin: false, status: 'error' });
+  }
+  return list.map((p) =>
+    '<option value="' + esc(p.name) + '"' + (p.name === current ? ' selected' : '') + '>' +
+    esc(p.name) + (p.builtin ? '（内置通用引擎）' : ' — ' + esc(p.title)) + '</option>').join('');
+}
+
+function profileCard(p, idx) {
+  const cur = p.plugin || BUILTIN;
+  const isBuiltin = cur === BUILTIN;
+  const plugin = state.plugins.find((x) => x.name === cur);
+
+  let fields;
+  if (isBuiltin) {
+    const aead = p.aead || {};
+    const aeadAlg = /gcm$|chacha20-poly1305/.test(p.alg || '');
+    fields = '<div class="grid">' +
+      '<div class="fld"><label>算法</label><input type="text" list="alg-list" data-f="alg" value="' + esc(p.alg || '') + '" placeholder="aes-256-gcm"></div>' +
+      '<div class="fld"><label>密钥</label><input type="password" data-f="key" value="' + esc(p.key || '') + '" placeholder="留空 = 沿用当前值" autocomplete="new-password"></div>' +
+      '<div class="fld"><label>密钥编码</label><select data-f="keyEncoding">' + optionsOf(KEY_ENCODINGS, p.keyEncoding || 'utf8') + '</select></div>' +
+      '<div class="fld"><label>IV（ECB / AEAD 不填）</label><input type="password" data-f="iv" value="' + esc(p.iv || '') + '" placeholder="留空 = 沿用当前值" autocomplete="new-password"></div>' +
+      '<div class="fld"><label>IV 编码</label><select data-f="ivEncoding">' + optionsOf(KEY_ENCODINGS, p.ivEncoding || 'utf8') + '</select></div>' +
+      '<div class="fld"><label>密文编码</label><select data-f="cipherEncoding">' + optionsOf(CIPHER_ENCODINGS, p.cipherEncoding || 'base64') + '</select></div>' +
+      '<div class="fld inline"><input type="checkbox" data-f="autoPadding"' + (p.autoPadding !== false ? ' checked' : '') + '><label>自动 PKCS#7 padding</label></div>' +
+      '</div>' +
+      '<div class="sub-grid" data-aead style="display:' + (aeadAlg ? 'grid' : 'none') + '">' +
+        '<div class="fld"><label>IV 字节数</label><input type="number" data-f="aead.ivBytes" value="' + esc(aead.ivBytes !== undefined ? aead.ivBytes : 12) + '"></div>' +
+        '<div class="fld"><label>Tag 字节数</label><input type="number" data-f="aead.tagBytes" value="' + esc(aead.tagBytes !== undefined ? aead.tagBytes : 16) + '"></div>' +
+        '<div class="fld"><label>Tag 位置</label><select data-f="aead.tagAt">' + optionsOf(['end','start'], aead.tagAt || 'end') + '</select></div>' +
+        '<div class="fld"><label>AAD（一般留空）</label><input type="text" data-f="aead.aad" value="' + esc(aead.aad || '') + '"></div>' +
+      '</div>';
+  } else if (isScriptPlugin(plugin, cur)) {
+    fields = scriptFields(p, plugin, cur);
+  } else {
+    const schema = (plugin && plugin.configSchema) || { type: 'object', properties: {} };
+    const props = schema.properties || {};
+    fields = '<div class="grid">' + Object.keys(props).map((k) =>
+      schemaField(k, props[k], (p.options || {})[k], 'p' + idx)).join('') + '</div>' +
+      (schema.required && schema.required.length
+        ? '<div class="muted" style="margin-top:6px">必填：' + schema.required.map(esc).join('、') + '</div>'
+        : '') +
+      (plugin && plugin.status === 'error'
+        ? '<div class="banner bad" style="margin-top:8px">这个插件没加载成功，保存会被拒绝：' + esc(plugin.error || '') + '</div>'
+        : '');
+  }
+
+  const req = p.request || { type: 'raw' };
+  const resp = p.response || { type: 'raw' };
+  const enc = p.encrypt || resp;
+  const q = p.query;
+
+  return '<div class="card" data-pid="' + esc(p.id || '') + '" data-idx="' + idx + '" data-builtin="' + (isBuiltin ? '1' : '0') + '">' +
+    '<div class="card-head">' +
+      '<input type="text" class="pname" data-f="name" value="' + esc(p.name || p.id || '') + '" placeholder="名称">' +
+      '<span class="mono muted">' + esc(p.id || '（新档，保存时生成 id）') + '</span>' +
+      '<select class="pplugin" data-f="plugin">' + pluginChoices(cur) + '</select>' +
+      '<span class="badge gray">被 ' + esc(String(p.routeCount || 0)) + ' 条路由引用</span>' +
+      '<span class="spacer"></span>' +
+      '<button class="danger" data-del-profile="' + esc(p.id || '') + '">删除</button>' +
+    '</div>' +
+    fields +
+    (isBuiltin ? '' :
+      '<div class="fld" style="margin-top:8px"><label>允许读取的 header（逗号分隔，最多 8 个；默认一个都不给）</label>' +
+      '<input type="text" data-f="ctxHeaders" value="' + esc(((p.pluginContext || {}).headers || []).join(', ')) + '" placeholder="例如 x-nonce, x-ts"></div>') +
+    '<details><summary>密文位置（wrap）</summary><div class="sub-grid">' +
+      wrapFields('request', req, idx) + wrapFields('response', resp, idx) + wrapFields('encrypt', enc, idx) +
+      '<div class="fld"><label>query 密文字段（GET 用）</label>' +
+        '<input type="text" data-f="query.field" value="' + esc(q ? q.field : '') + '" placeholder="例如 payload，留空 = 不处理 query"></div>' +
+      '<div class="fld"><label>query 前缀（可选）</label>' +
+        '<input type="text" data-f="query.prefix" value="' + esc(q && q.prefix ? q.prefix : '') + '" placeholder="例如 ciphertext:"></div>' +
+    '</div></details>' +
+    '<div class="test-row"><textarea data-test-input placeholder="粘贴一段密文（或待加密的明文），点右侧按钮试解"></textarea>' +
+      '<div><button data-test-profile="' + esc(p.id || '') + '">测试</button><br>' +
+      '<select data-test-mode style="margin-top:4px;width:92px"><option value="decrypt">解密</option><option value="encrypt">加密</option></select></div></div>' +
+    '<div class="test-out" data-test-out></div>' +
+    '</div>';
+}
+
+function wrapFields(which, w, idx) {
+  const labels = { request: '请求体', response: '响应体', encrypt: 'mock 加密回写' };
+  const type = w && w.type ? w.type : 'raw';
+  return '<div class="fld"><label>' + labels[which] + '：位置</label><select data-wrap="' + which + '.type">' + optionsOf(WRAP_TYPES, type) + '</select></div>' +
+    '<div class="fld"><label>' + labels[which] + '：字段名</label><input type="text" data-wrap="' + which + '.field" value="' + esc(w && w.field ? w.field : '') + '" placeholder="json / form 时必填"></div>' +
+    '<div class="fld"><label>' + labels[which] + '：前缀</label><input type="text" data-wrap="' + which + '.prefix" value="' + esc(w && w.prefix ? w.prefix : '') + '" placeholder="例如 ciphertext:"></div>';
+}
+
+function optionsOf(list, cur) {
+  return list.map((x) => '<option value="' + esc(x) + '"' + (String(x) === String(cur) ? ' selected' : '') + '>' + esc(x) + '</option>').join('');
+}
+
+function sectionRoutes(v) {
+  const profiles = (v.profiles || []);
+  const rows = (v.routes || []).map((r, i) => {
+    // 引用了不存在的档时也要能显示出来：否则 select 会退回第一项，
+    // 用户点一下保存就把这条路由悄悄改到了别的密钥档上
+    const known = profiles.some((p) => p.id === r.profileId);
+    const opts = profiles.map((p) =>
+      '<option value="' + esc(p.id) + '"' + (p.id === r.profileId ? ' selected' : '') + '>' + esc(p.name || p.id) + '</option>').join('') +
+      (known ? '' : '<option value="' + esc(r.profileId || '') + '" selected>' + esc(r.profileId || '（未指定）') + '（档不存在）</option>');
+    const m = r.match || {};
+    return '<tr data-rid="' + esc(r.id || '') + '" data-ridx="' + i + '">' +
+      '<td><select data-rf="profileId" style="width:150px">' + opts + '</select></td>' +
+      '<td><input type="text" data-rf="method" value="' + esc(m.method || '') + '" placeholder="ANY" style="width:74px"></td>' +
+      '<td><input type="text" data-rf="host" value="' + esc(m.host || '') + '" placeholder="*.example.com" style="width:150px"></td>' +
+      '<td><input type="text" data-rf="path" value="' + esc(m.path || '') + '" placeholder="*user/app/*" style="width:190px"></td>' +
+      '<td><input type="checkbox" data-rf="request"' + (r.request !== false ? ' checked' : '') + ' title="解请求体"></td>' +
+      '<td><input type="checkbox" data-rf="response"' + (r.response !== false ? ' checked' : '') + ' title="解响应体"></td>' +
+      '<td><input type="checkbox" data-rf="enabled"' + (r.enabled !== false ? ' checked' : '') + '></td>' +
+      '<td><button class="danger" data-del-route="' + i + '">删除</button></td>' +
+      '</tr>';
+  }).join('');
+
+  return '<section><div class="sec-head"><h2>解密路由</h2>' +
+    '<span class="muted">按顺序匹配，第一条命中生效；host 与 path 至少填一个</span>' +
+    '<span class="spacer"></span><button id="btn-add-route"' + (profiles.length ? '' : ' disabled title="先加一个密钥档"') + '>新增路由</button></div>' +
+    '<div class="tbl-wrap"><table><thead><tr>' +
+      '<th>密钥档</th><th>方法</th><th>host</th><th>path</th><th>解请求</th><th>解响应</th><th>启用</th><th></th>' +
+    '</tr></thead><tbody>' + (rows || '<tr><td colspan="8" class="muted">还没有路由，加密接口不会命中任何密钥档</td></tr>') + '</tbody></table></div>' +
+    '<div class="muted" style="margin-top:6px">通配语法与 mock 规则一致：<code>*</code> / <code>?</code> / <code>re:</code> 前缀。' +
+    '不清楚接口时先用 <code>*signature*</code> 这类窄条件，别用 <code>*</code>——那会把所有接口都送去解密。</div>' +
+    '</section>';
+}
+
+/* ── 交互 ─────────────────────────────────────────────── */
+
+function bind() {
+  // 算法变化时切换 AEAD 布局区
+  document.querySelectorAll('[data-f="alg"]').forEach((el) => {
+    el.oninput = () => {
+      const card = el.closest('.card');
+      const aead = card && card.querySelector('[data-aead]');
+      if (aead) aead.style.display = /gcm$|chacha20-poly1305/.test(el.value) ? 'grid' : 'none';
+    };
+  });
+  // 换插件 = 换整套参数形态（字段完全不是一套），必须重绘。
+  // 先把当前卡片已填的内容写回 state，避免「切一下插件把好好的配置清空」。
+  document.querySelectorAll('[data-f="plugin"]').forEach((el) => {
+    el.onchange = () => {
+      const card = el.closest('.card');
+      const idx = Number(card.dataset.idx);
+      const orig = state.view.profiles[idx] || {};
+      const next = collectProfile(card, orig);
+      next.plugin = el.value;
+      // 换到内置引擎时旧 options 不再适用，反之扁平字段也不再适用
+      if (el.value === BUILTIN) { delete next.options; delete next.pluginContext; }
+      else { delete next.alg; delete next.key; delete next.keyEncoding; delete next.iv; delete next.ivEncoding; delete next.aead; delete next.cipherEncoding; delete next.autoPadding; }
+      state.view.profiles[idx] = Object.assign({}, orig, next);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-del-profile]').forEach((b) => {
+    b.onclick = () => {
+      const idx = Number(b.dataset.idx);
+      const target = state.view.profiles[idx];
+      if (!target) return;
+      const id = target.id;
+      const used = id ? (state.view.routes || []).filter((r) => r.profileId === id).length : 0;
+      if (used) {
+        const drop = confirm('该密钥档被 ' + used + ' 条路由引用，删除后这些路由会一起删掉。继续？');
+        if (!drop) return;
+        state.view.routes = state.view.routes.filter((r) => r.profileId !== id);
+      }
+      state.view.profiles.splice(idx, 1);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-del-route]').forEach((b) => {
+    b.onclick = () => {
+      // 按行号删，不按 id：新加的路由还没有 id（服务端保存时生成）
+      state.view.routes.splice(Number(b.dataset.delRoute), 1);
+      render();
+    };
+  });
+  const addP = $('btn-add-profile');
+  if (addP) addP.onclick = () => {
+    // 新档不带 id：服务端生成，避免控制台自造 id 与并发编辑撞车
+    state.view.profiles.push({ name: '新密钥档', plugin: BUILTIN, request: { type: 'raw' }, response: { type: 'raw' }, encrypt: { type: 'raw' }, routeCount: 0 });
+    render();
+  };
+  const addR = $('btn-add-route');
+  if (addR) addR.onclick = () => {
+    // 新档没有 id（服务端保存时生成），所以优先挂到已有的档上
+    const first = state.view.profiles.find((p) => p.id);
+    state.view.routes.push({ profileId: first ? first.id : '', enabled: true, request: true, response: true, match: {} });
+    render();
+  };
+  document.querySelectorAll('[data-test-profile]').forEach((b) => {
+    b.onclick = () => { void testProfile(b); };
+  });
+  document.querySelectorAll('[data-ptest]').forEach((b) => {
+    b.onclick = () => { showPluginTest(b.dataset.ptest); };
+  });
+}
+
+/**
+ * 试解一个密钥档。
+ *
+ * 走 `POST /crypto/test`（按 profileId）而不是 `/crypto/plugins/test`：
+ * 前者用的是**已保存**的那套参数（含 aead 布局、wrap、query 前缀），后者只有表单标量字段。
+ * 「我这段密文到底能不能解开」问的是前者。
+ */
+async function testProfile(btn) {
+  const card = btn.closest('.card');
+  const out = card.querySelector('[data-test-out]');
+  const text = card.querySelector('[data-test-input]').value;
+  const mode = card.querySelector('[data-test-mode]').value;
+  const pid = btn.dataset.testProfile;
+  out.className = 'test-out';
+  if (!pid) { out.textContent = '先保存一次，拿到 profile id 之后再测试'; return; }
+  if (!text) { out.textContent = '先粘贴一段密文'; return; }
+  out.textContent = '测试中…';
+  const res = await apiFetch('/__ec/api/crypto/test', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ profileId: pid, text, mode }),
+  });
+  const d = await res.json().catch(() => ({}));
+  const ok = res.ok && d.ok;
+  out.className = 'test-out ' + (ok ? 'ok' : 'bad');
+  out.textContent = ok ? d.output : (d.error || d.message || ('HTTP ' + res.status));
+}
+
+/** 插件级试跑：参数只来自 schema 标量字段，用来验证「插件本身 + 这套参数」通不通 */
+function showPluginTest(name) {
+  const p = state.plugins.find((x) => x.name === name);
+  const panel = $('ptest-panel');
+  if (!p || !panel) return;
+  const schema = p.configSchema || { type: 'object', properties: {} };
+  const props = schema.properties || {};
+  const isScript = p.kind === 'script';
+  panel.innerHTML = '<div class="card" style="margin-top:10px">' +
+    '<div class="card-head"><b>测试插件 ' + esc(name) + '</b><span class="muted">参数不会保存</span>' +
+    '<span class="spacer"></span><button data-close-ptest>收起</button></div>' +
+    (isScript
+      ? '<div class="fld"><label>参数（JSON，与密钥档里那份同结构）</label>' +
+        '<textarea class="mono" data-optjson rows="4" spellcheck="false">{}</textarea></div>'
+      : '<div class="grid">' + Object.keys(props).map((k) => schemaField(k, props[k], undefined, 't-' + name)).join('') + '</div>') +
+    (name === BUILTIN
+      // 内置引擎的 aead 是嵌套结构，schema 只描述标量，所以这里填不出来。
+      // 与其让人以为「配了 aead 却没生效」，不如直接说清该去哪儿测。
+      ? '<div class="muted" style="margin-top:6px">内置引擎的 AEAD 布局（ivBytes / tagBytes / tagAt）不在表单里，带这些参数的档请用「密钥档」卡片上的测试。</div>'
+      : '') +
+    '<div class="test-row"><textarea data-ptest-input placeholder="密文串（已去掉前缀）"></textarea>' +
+      '<div><button class="primary" data-ptest-run>试跑</button><br>' +
+      '<select data-ptest-mode style="margin-top:4px;width:92px"><option value="decrypt">解密</option><option value="encrypt">加密</option></select></div></div>' +
+    '<div class="test-out" data-ptest-out></div>' +
+    '</div>';
+
+  panel.querySelector('[data-close-ptest]').onclick = () => { panel.innerHTML = ''; };
+  panel.querySelector('[data-ptest-run]').onclick = async () => {
+    const out = panel.querySelector('[data-ptest-out]');
+    const root = panel.querySelector('.card');
+    const opts = {};
+    const jsonBox = root.querySelector('[data-optjson]');
+    if (jsonBox) {
+      const raw = jsonBox.value.trim();
+      try {
+        Object.assign(opts, raw ? JSON.parse(raw) : {});
+      } catch (e) {
+        out.className = 'test-out bad';
+        out.textContent = '参数不是合法 JSON：' + e.message;
+        return;
+      }
+    } else {
+      root.querySelectorAll('[data-opt]').forEach((el) => {
+        const k = el.dataset.opt;
+        const t = el.dataset.type;
+        if (t === 'boolean') { opts[k] = el.checked; return; }
+        const raw = el.value;
+        if (raw === '') return;
+        opts[k] = (t === 'integer' || t === 'number') ? Number(raw) : raw;
+      });
+    }
+    out.className = 'test-out';
+    out.textContent = '试跑中…';
+    const res = await apiFetch('/__ec/api/crypto/plugins/test', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        plugin: name, options: opts,
+        text: panel.querySelector('[data-ptest-input]').value,
+        mode: panel.querySelector('[data-ptest-mode]').value,
+      }),
+    });
+    const d = await res.json().catch(() => ({}));
+    const ok = res.ok && d.ok;
+    out.className = 'test-out ' + (ok ? 'ok' : 'bad');
+    out.textContent = ok ? d.output : (d.error || d.message || ('HTTP ' + res.status));
+  };
+}
+
+/* ── 从 DOM 收集配置 ───────────────────────────────────── */
+
+function readNum(v) {
+  if (v === '' || v === undefined) return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** 收集一张密钥档卡片。空字符串一律视为「沿用旧值」，由服务端按 prev 合并 */
+function collectProfile(card, orig) {
+  const val = (sel) => {
+    const el = card.querySelector(sel);
+    return el ? el.value.trim() : '';
+  };
+  const checked = (sel) => {
+    const el = card.querySelector(sel);
+    return el ? el.checked : false;
+  };
+  const plugin = val('[data-f="plugin"]') || BUILTIN;
+  const out = {
+    id: orig.id,
+    name: val('[data-f="name"]') || undefined,
+    plugin,
+    request: readWrap(card, 'request'),
+    response: readWrap(card, 'response'),
+    encrypt: readWrap(card, 'encrypt'),
+  };
+
+  if (plugin === BUILTIN) {
+    out.alg = val('[data-f="alg"]');
+    // 空 = 沿用：显式传空串会让服务端走 prev.key 分支（与打码值同一条路）
+    out.key = val('[data-f="key"]') || orig.key || '';
+    out.keyEncoding = val('[data-f="keyEncoding"]');
+    const iv = val('[data-f="iv"]');
+    if (iv) out.iv = iv; else if (orig.iv) out.iv = orig.iv;
+    out.ivEncoding = val('[data-f="ivEncoding"]');
+    out.cipherEncoding = val('[data-f="cipherEncoding"]');
+    out.autoPadding = checked('[data-f="autoPadding"]');
+    if (/gcm$|chacha20-poly1305/.test(out.alg)) {
+      const aead = {};
+      const ivb = readNum(val('[data-f="aead.ivBytes"]'));
+      const tb = readNum(val('[data-f="aead.tagBytes"]'));
+      if (ivb !== undefined) aead.ivBytes = ivb;
+      if (tb !== undefined) aead.tagBytes = tb;
+      aead.tagAt = val('[data-f="aead.tagAt"]') || 'end';
+      const aad = val('[data-f="aead.aad"]');
+      if (aad) aead.aad = aad;
+      out.aead = aead;
+    }
+  } else if (card.querySelector('[data-optjson]')) {
+    // 脚本档：参数就是一份 JSON。不认识的键原样保留（与表单档同一原则）
+    const raw = card.querySelector('[data-optjson]').value.trim();
+    let parsed = {};
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch (e) {
+        throw new Error('参数不是合法 JSON：' + e.message);
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('参数必须是一个 JSON 对象，例如 {"key": "..."}');
+      }
+    }
+    out.options = parsed;
+    const headers = val('[data-f="ctxHeaders"]');
+    if (headers) out.pluginContext = { headers: headers.split(',').map((s) => s.trim()).filter(Boolean) };
+  } else {
+    // 插件档：只收集 schema 里声明的字段，未声明的键原样留着（插件升级新增字段时不能丢）
+    const opts = Object.assign({}, orig.options || {});
+    card.querySelectorAll('[data-opt]').forEach((el) => {
+      const k = el.dataset.opt;
+      const t = el.dataset.type;
+      if (t === 'boolean') { opts[k] = el.checked; return; }
+      const raw = el.value;
+      if (raw === '') {
+        // 空字符串：secret 字段表示「沿用」，非 secret 字段表示清空
+        if (el.type === 'password') return;
+        delete opts[k];
+        return;
+      }
+      opts[k] = (t === 'integer' || t === 'number') ? Number(raw) : raw;
+    });
+    out.options = opts;
+    const headers = val('[data-f="ctxHeaders"]');
+    if (headers) out.pluginContext = { headers: headers.split(',').map((s) => s.trim()).filter(Boolean) };
+  }
+
+  const qf = val('[data-f="query.field"]');
+  if (qf) {
+    out.query = { field: qf };
+    const qp = val('[data-f="query.prefix"]');
+    if (qp) out.query.prefix = qp;
+  }
+  return out;
+}
+
+function readWrap(card, which) {
+  const t = card.querySelector('[data-wrap="' + which + '.type"]');
+  const f = card.querySelector('[data-wrap="' + which + '.field"]');
+  const p = card.querySelector('[data-wrap="' + which + '.prefix"]');
+  const type = t ? t.value : 'raw';
+  const w = { type };
+  if (type !== 'raw' && f && f.value.trim()) w.field = f.value.trim();
+  if (p && p.value.trim()) w.prefix = p.value.trim();
+  return w;
+}
+
+function collectRoutes() {
+  const rows = [...document.querySelectorAll('tr[data-rid]')];
+  return rows.map((tr) => {
+    const g = (n) => {
+      const el = tr.querySelector('[data-rf="' + n + '"]');
+      return el ? el.value.trim() : '';
+    };
+    const c = (n) => {
+      const el = tr.querySelector('[data-rf="' + n + '"]');
+      return el ? el.checked : true;
+    };
+    const match = {};
+    if (g('method')) match.method = g('method').toUpperCase();
+    if (g('host')) match.host = g('host');
+    if (g('path')) match.path = g('path');
+    return {
+      id: tr.dataset.rid || undefined,
+      profileId: g('profileId'),
+      match,
+      request: c('request'),
+      response: c('response'),
+      enabled: c('enabled'),
+    };
+  });
+}
+
+async function save() {
+  const cards = [...document.querySelectorAll('.card[data-pid]')];
+  let profiles;
+  try {
+    profiles = cards.map((card) => {
+      const idx = Number(card.dataset.idx);
+      const orig = (state.view.profiles || [])[idx] || {};
+      return collectProfile(card, orig);
+    });
+  } catch (e) {
+    // 脚本档的 JSON 写坏了：这里必须拦住，否则整份配置都不发出去（服务端也是整体替换）
+    $('body-wrap').insertAdjacentHTML('afterbegin',
+      '<div class="banner bad" id="save-err">' + esc(e && e.message ? e.message : String(e)) + '</div>');
+    toast('参数有误');
+    return;
+  }
+  const routes = collectRoutes();
+  const res = await apiFetch('/__ec/api/crypto', {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ profiles, routes }),
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = d.message || d.error || ('HTTP ' + res.status);
+    $('body-wrap').insertAdjacentHTML('afterbegin', '<div class="banner bad" id="save-err">保存失败：' + esc(msg) + '</div>');
+    toast('保存失败');
+    return;
+  }
+  state.view = d;
+  await loadAll();
+  toast('已保存');
+}
+
+$('btn-login').onclick = () => { void doLogin(); };
+$('in-pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') void doLogin(); });
+$('btn-save').onclick = () => { void save(); };
+$('btn-logout').onclick = () => {
+  state.session = null;
+  localStorage.removeItem('ec_session');
+  showLogin();
+};
+$('btn-reload-plugins').onclick = async () => {
+  const btn = $('btn-reload-plugins');
+  btn.disabled = true;
+  btn.textContent = '扫描中…';
+  try {
+    const res = await apiFetch('/__ec/api/crypto/plugins/reload', { method: 'POST' });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { toast(d.message || '扫描失败'); return; }
+    state.plugins = d.plugins || [];
+    state.view = d;
+    state.warnings = d.warnings || [];
+    render();
+    // 密码档可能因为插件没加载而被丢弃——这种「扫完少了几条」必须明确说出来
+    toast('已扫描：' + state.plugins.length + ' 个插件' + (d.warnings && d.warnings.length ? '，' + d.warnings.length + ' 条告警' : ''));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '重新扫描插件';
+  }
+};
+
+state.session = localStorage.getItem('ec_session');
+$('alg-list').innerHTML = ALGS.map((a) => '<option value="' + a + '">').join('');
+void boot();
+</script>
+</body>
+</html>

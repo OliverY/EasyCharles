@@ -1,0 +1,55 @@
+# EasyCharles systemd unit 模板
+#
+# 安装（假设发布包解到 /opt/easy-charles）：
+#   1. sudo useradd --system --no-create-home --shell /usr/sbin/nologin easycharles
+#   2. sudo mkdir -p /etc/easy-charles && sudo cp easy-charles.env.example /etc/easy-charles/easy-charles.env
+#      → 编辑该文件填 EC_PASSWORD / EC_ADMIN，然后 sudo chmod 600
+#   3. sudo cp easy-charles.service /etc/systemd/system/
+#   4. sudo systemctl daemon-reload && sudo systemctl enable --now easy-charles
+#
+# 改路径（/opt/easy-charles、/var/lib/easycharles）时，本文件的 WorkingDirectory /
+# ExecStart / StateDirectory / ReadWritePaths 四处要一起改。
+
+[Unit]
+Description=EasyCharles 本地中转服务（数据面 + 控制面 + 控制台）
+Documentation=file:/opt/easy-charles/DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=easycharles
+Group=easycharles
+WorkingDirectory=/opt/easy-charles
+
+# 口令等敏感项放 EnvironmentFile（不要写死在本文件里），
+# run.sh 会把 EC_* 翻译成服务端参数，详见 DEPLOY.md「参数与环境变量」。
+Environment=EC_PORT=8899
+Environment=EC_DATA_DIR=/var/lib/easycharles
+# 本机没有该文件时 systemd 默认会启动失败，加 '-' 前缀表示「允许不存在」
+EnvironmentFile=-/etc/easy-charles/easy-charles.env
+
+# --lan 等价于 --host 0.0.0.0：内网其他机器/手机才能连上。
+# ⚠ 数据面不鉴权（ADR-015），开启前务必确认 EC_PASSWORD 已改，并限制来源网段。
+ExecStart=/opt/easy-charles/run.sh --lan
+
+# systemd 自动创建并 chown /var/lib/easycharles，省掉手工 mkdir + chown
+StateDirectory=easycharles
+
+Restart=on-failure
+RestartSec=3
+
+# 服务端未处理 SIGTERM（没有优雅停机），停止即直接终止：
+# 进行中的转发会断，但 rules.json / store.json 是写时落盘，重启不丢。
+KillSignal=SIGTERM
+TimeoutStopSec=5
+
+# 加固：代码目录只读，只有数据目录可写
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/easycharles
+
+[Install]
+WantedBy=multi-user.target

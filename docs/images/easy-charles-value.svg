@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 486" width="1000" height="486" role="img"
+     aria-label="EasyCharles 核心价值：抓包不用装证书 —— 与 Charles 中间人方案的对比">
+  <title>EasyCharles 核心价值：不装证书，也能看到明文</title>
+  <style>
+    text {
+      font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif;
+    }
+    .t       { font-size: 28px; font-weight: 700; fill: #0f172a; }
+    .sub     { font-size: 14px; fill: #6b7280; }
+    .ptitle  { font-size: 13px; font-weight: 600; }
+    .pfoot   { font-size: 10px; fill: #9aa3af; }
+    .node    { font-size: 11.5px; font-weight: 600; fill: #1f2937; }
+    .nodesub { font-size: 9.5px; fill: #6b7280; }
+    .arlabel { font-size: 9.5px; text-anchor: middle; }
+    .bad     { font-size: 11px; fill: #b42318; }
+    .good    { font-size: 11px; fill: #2b6cb0; }
+    .boxt    { font-size: 12.5px; font-weight: 600; }
+    .boxd    { font-size: 10.5px; fill: #6b7280; }
+    .code    { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px; fill: #1f2937; }
+  </style>
+
+  <defs>
+    <marker id="aRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d9776c"/>
+    </marker>
+    <marker id="aGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="486" fill="#ffffff"/>
+
+  <!-- ═══ 标题 ═══ -->
+  <text class="t" x="40" y="62">抓包，不用装证书</text>
+  <text class="sub" x="40" y="90">同样能看明文、能改响应；手机端零配置，pinning 也不用绕</text>
+
+  <!-- ══════ 左：传统中间人 ══════ -->
+  <rect x="40" y="118" width="440" height="222" rx="14" fill="#fffbfa" stroke="#f3d3cf"/>
+  <text class="ptitle" x="62" y="146" fill="#b42318">传统抓包（Charles 那类）：中间人</text>
+  <line x1="41" y1="160" x2="479" y2="160" stroke="#f3d3cf"/>
+
+  <rect x="52" y="180" width="110" height="46" rx="9" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="node" x="107" y="202" text-anchor="middle">App</text>
+  <text class="nodesub" x="107" y="217" text-anchor="middle">TLS 正常发起</text>
+
+  <line x1="162" y1="203" x2="204" y2="203" stroke="#d9776c" stroke-width="1.6" marker-end="url(#aRed)"/>
+  <text class="arlabel" x="184" y="196" fill="#d9776c">TLS</text>
+
+  <rect x="206" y="180" width="110" height="46" rx="9" fill="#fef6f5" stroke="#d9776c" stroke-dasharray="4 3"/>
+  <text class="node" x="261" y="202" text-anchor="middle">Charles</text>
+  <text class="nodesub" x="261" y="217" text-anchor="middle">中间人 · 拆 TLS</text>
+
+  <line x1="316" y1="203" x2="358" y2="203" stroke="#d9776c" stroke-width="1.6" marker-end="url(#aRed)"/>
+  <text class="arlabel" x="338" y="196" fill="#d9776c">TLS</text>
+
+  <rect x="360" y="180" width="110" height="46" rx="9" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="node" x="415" y="202" text-anchor="middle">服务器</text>
+  <text class="nodesub" x="415" y="217" text-anchor="middle">api.foo.com</text>
+
+  <text class="bad" x="62" y="258">✕  手机必须装根证书并手动信任</text>
+  <text class="bad" x="62" y="282">✕  pinning 会直接拒连，得额外绕过</text>
+  <text class="bad" x="62" y="306">✕  业务层加密后，你只看到密文</text>
+  <text class="pfoot" x="62" y="328">每台设备都要来一次，换机 / 换系统还得重装</text>
+
+  <!-- ══════ 右：EasyCharles ══════ -->
+  <rect x="520" y="118" width="440" height="222" rx="14" fill="#f7fafe" stroke="#cfe0f3"/>
+  <text class="ptitle" x="542" y="146" fill="#2b6cb0">EasyCharles：应用层引流</text>
+  <line x1="521" y1="160" x2="959" y2="160" stroke="#cfe0f3"/>
+
+  <rect x="532" y="180" width="110" height="46" rx="9" fill="#e8f1fb" stroke="#2b6cb0"/>
+  <text class="node" x="587" y="202" text-anchor="middle" fill="#2b6cb0">App</text>
+  <text class="nodesub" x="587" y="217" text-anchor="middle">拦截器挂最外层</text>
+
+  <line x1="642" y1="203" x2="684" y2="203" stroke="#2b6cb0" stroke-width="1.6" marker-end="url(#aGreen)"/>
+  <text class="arlabel" x="664" y="196" fill="#2b6cb0">明文</text>
+
+  <rect x="686" y="180" width="110" height="46" rx="9" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="node" x="741" y="202" text-anchor="middle">本地服务</text>
+  <text class="nodesub" x="741" y="217" text-anchor="middle">记录 · mock · 序列</text>
+
+  <line x1="796" y1="203" x2="838" y2="203" stroke="#2b6cb0" stroke-width="1.6" marker-end="url(#aGreen)"/>
+  <text class="arlabel" x="818" y="196" fill="#2b6cb0">TLS</text>
+
+  <rect x="840" y="180" width="110" height="46" rx="9" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="node" x="895" y="202" text-anchor="middle">服务器</text>
+  <text class="nodesub" x="895" y="217" text-anchor="middle">不劫持，原样发起</text>
+
+  <text class="good" x="542" y="258">✓  手机零配置，不装任何证书</text>
+  <text class="good" x="542" y="282">✓  pinning 不受影响，无需绕过</text>
+  <text class="good" x="542" y="306">✓  请求 / 响应都是明文，加解密也看得见</text>
+  <text class="pfoot" x="542" y="328">TLS 由 App 正常发起，我们只在中途接一层</text>
+
+  <!-- ═══ 代价 ═══ -->
+  <rect x="40" y="362" width="440" height="90" rx="12" fill="#e8f1fb" stroke="#2b6cb0"/>
+  <text class="boxt" x="60" y="388" fill="#2b6cb0">代价：加一行拦截器</text>
+  <text class="code" x="60" y="410">addInterceptor(EasyCharlesInterceptor())</text>
+  <text class="boxd" x="60" y="432">仅 debug 构建生效，release 包里一行代码都没有</text>
+
+  <!-- ═══ 边界 ═══ -->
+  <rect x="520" y="362" width="440" height="90" rx="12" fill="#fffdf5" stroke="#f0e0bd"/>
+  <text class="boxt" x="540" y="388" fill="#854f0b">⚠  边界：只覆盖接入了 SDK 的 HTTP</text>
+  <text class="boxd" x="540" y="410">IM 长连接信令、WebSocket 私有协议、</text>
+  <text class="boxd" x="540" y="432">未接 SDK 的三方组件，都抓不到</text>
+</svg>

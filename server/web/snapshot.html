@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>EasyCharles 快照</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #e4e7ec;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --accent: #2b6cb0;
+    --accent-soft: #e8f1fb;
+    --ok: #3b6d11;
+    --warn: #854f0b;
+    --err: #a32d2d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .badge {
+    font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent);
+  }
+  .badge.readonly { background: #f1efe8; color: #5f5e5a; border-color: var(--border); }
+  .topbar .spacer { flex: 1; }
+  .topbar a { color: var(--accent); text-decoration: none; font-size: 12px; }
+  .topbar a:hover { text-decoration: underline; }
+  main { max-width: 1000px; margin: 0 auto; padding: 18px 20px 60px; }
+  .note {
+    font-size: 12px; padding: 8px 12px; border-radius: 8px; margin-bottom: 14px;
+    background: #fdf6e3; color: var(--warn); border: 1px solid #f2e2b8;
+  }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+  .status-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .status-line .code { font-size: 20px; line-height: 1.2; font-weight: 700; }
+  .pill {
+    font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+  }
+  .tag { font-size: 10px; padding: 1px 5px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+  .tag.other { background: #f1efe8; color: #5f5e5a; }
+  .sec { margin-top: 14px; }
+  .sec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .sec-head .t { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .sec-head .n { font-size: 11px; color: var(--muted); }
+  .sec-head button { margin-left: auto; }
+  .acts { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  button {
+    font: inherit; padding: 4px 11px; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  table.kv { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.kv td { padding: 3px 6px; vertical-align: top; border-bottom: 1px solid #f1f2f4; }
+  table.kv td:first-child { width: 200px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  table.kv .src { font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 3px; margin-left: 4px; }
+  pre.body {
+    margin: 8px 0 0; padding: 12px; background: #fbfbfc; border: 1px solid var(--border);
+    border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 520px; overflow: auto;
+  }
+  pre.body .j-key { color: #2b6cb0; }
+  pre.body .j-str { color: #9a5b00; }
+  pre.body .j-num { color: #1d4ed8; }
+  pre.body .j-bool { color: #a32d2d; }
+  pre.body .j-null { color: var(--muted); }
+  details.fold { margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 9px; }
+  details.fold > summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); list-style: none; user-select: none; }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary::before { content: '▸ '; }
+  details.fold[open] > summary::before { content: '▾ '; }
+  details.fold > summary:hover { color: var(--accent); }
+  details.fold .fold-inner { margin-top: 9px; }
+  .st.s2 { color: var(--ok); } .st.s4 { color: var(--warn); } .st.s5 { color: var(--err); }
+  .empty { color: var(--muted); padding: 60px 20px; text-align: center; }
+  .empty h1 { font-size: 16px; color: var(--text); margin: 0 0 6px; }
+  .foot { color: var(--muted); font-size: 11px; text-align: center; margin-top: 24px; }
+  #toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+    background: #1f2937; color: #fff; font-size: 12px; padding: 8px 16px; border-radius: 8px;
+    z-index: 90; opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  #toast.show { opacity: .94; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">EasyCharles</span>
+  <span class="badge readonly">只读快照</span>
+  <span class="badge" id="head-title">加载中…</span>
+  <span class="spacer"></span>
+  <a href="/" target="_blank" rel="noopener">打开控制台 →</a>
+</header>
+
+<main id="root"><div class="empty">加载中…</div></main>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const COMMON_PARAMS = new Set([
+  'sid', 'tid', 'ref_tid', 'timestamp', 'noncestr', 'sign', 'appsignkey',
+  'ac', 'mc', 'u', 'vs', 'vc', 'hardname', 'bv', 'devicename',
+]);
+function isCommonParam(k) { return COMMON_PARAMS.has(String(k).toLowerCase()); }
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function tryJson(text) {
+  const s = String(text || '').trim();
+  if (!s || (s[0] !== '{' && s[0] !== '[')) return null;
+  try { return JSON.parse(s); } catch (e) { return null; }
+}
+/** JSON 高亮：先切 token 再逐个转义，避免 esc 破坏引号匹配 */
+function jsonHighlight(raw) {
+  const re = /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g;
+  let out = '', last = 0, m;
+  while ((m = re.exec(raw))) {
+    out += esc(raw.slice(last, m.index));
+    if (m[1] !== undefined) {
+      out += '<span class="' + (m[2] ? 'j-key' : 'j-str') + '">' + esc(m[1]) + '</span>' + esc(m[2] || '');
+    } else if (m[3] !== undefined) {
+      out += '<span class="j-bool">' + m[3] + '</span>';
+    } else {
+      out += '<span class="j-num">' + m[4] + '</span>';
+    }
+    last = m.index + m[0].length;
+  }
+  return out + esc(raw.slice(last));
+}
+function bodyBlock(body, encoding, truncated) {
+  if (!body) return '<div class="meta">（无 body）</div>';
+  const note = truncated ? '（已截断 / 采样）' : '';
+  if (encoding === 'base64') {
+    return '<div class="meta">二进制内容（base64' + note + '）</div><pre class="body">' + esc(body.slice(0, 4000)) + '</pre>';
+  }
+  const json = tryJson(body);
+  if (json === null) return '<pre class="body">' + esc(body) + '</pre>';
+  return '<pre class="body">' + jsonHighlight(JSON.stringify(json, null, 2)) + '</pre>';
+}
+function bytesLabel(n) {
+  if (!n) return '0 B';
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(2) + ' MB';
+}
+function kvTable(map) {
+  const keys = Object.keys(map || {});
+  if (!keys.length) return '<div class="meta">无</div>';
+  return '<table class="kv">' + keys.map((k) =>
+    '<tr><td>' + esc(k) + '</td><td>' + esc(map[k]) + '</td></tr>').join('') + '</table>';
+}
+function paramsTable(list, emptyText) {
+  if (!list.length) return '<div class="meta">' + emptyText + '</div>';
+  return '<table class="kv">' + list.map((p) =>
+    '<tr><td>' + esc(p.k) + '</td><td>' + esc(p.v) +
+    (p.src === 'body' ? ' <span class="src">body</span>' : '') +
+    (p.src === 'dec' ? ' <span class="src">已解密</span>' : '') + '</td></tr>').join('') + '</table>';
+}
+/** 请求参数 = query + body（JSON / urlencoded），同名以 body 为准，再按业务/通用分组 */
+function requestParams(r) {
+  const req = r.request || {};
+  const map = new Map();
+  let q = req.query;
+  if (!q || !Object.keys(q).length) {
+    q = {};
+    try { new URL(req.url).searchParams.forEach((v, k) => { q[k] = v; }); } catch (e) {}
+  }
+  // query 密文参数解出来的明文（ADR-039）：替换掉密文那一行，避免看起来像发了两次
+  const qp = req.queryPlain && typeof req.queryPlain === 'object' ? req.queryPlain : null;
+  const cipherField = ((r.crypto || {}).query || {}).field || '';
+  Object.keys(q).forEach((k) => {
+    if (qp && k === cipherField) return;
+    map.set(k, { k, v: String(q[k]), src: 'query' });
+  });
+  if (qp) Object.keys(qp).forEach((k) => map.set(k, { k, v: String(qp[k]), src: 'dec' }));
+
+  const raw = req.body || '';
+  const ct = String((req.headers || {})['content-type'] || '').toLowerCase();
+  const json = raw ? tryJson(raw) : null;
+  if (json && typeof json === 'object' && !Array.isArray(json)) {
+    Object.keys(json).forEach((k) => {
+      const v = json[k];
+      map.set(k, { k, v: v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v), src: 'body' });
+    });
+  } else if (raw && /urlencoded/i.test(ct)) {
+    try { new URLSearchParams(raw).forEach((v, k) => map.set(k, { k, v, src: 'body' })); } catch (e) {}
+  }
+
+  const all = [...map.values()];
+  return { biz: all.filter((p) => !isCommonParam(p.k)), common: all.filter((p) => isCommonParam(p.k)) };
+}
+function statusClass(st) { return 's' + String(st)[0]; }
+function fmtTime(ms) {
+  try { return new Date(ms).toLocaleString(); } catch (e) { return String(ms); }
+}
+function fmtExpire(exp) {
+  if (!exp) return '永不过期';
+  const left = exp - Date.now();
+  if (left <= 0) return '已过期';
+  const h = Math.floor(left / 3600000);
+  if (h >= 1) return '剩余 ' + h + ' 小时';
+  return '剩余 ' + Math.max(1, Math.floor(left / 60000)) + ' 分钟';
+}
+function copyText(text, done) {
+  const ok = () => { if (done) done(); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(ok, () => {});
+    return;
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); ok(); } catch (e) {}
+  document.body.removeChild(ta);
+}
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 1900);
+}
+
+/** 从记录生成 cURL：用真实目标 URL，剔除 X-EC-* / host / content-length 这类本地约定头 */
+function toCurl(rec) {
+  const req = rec.request || {};
+  const method = String(req.method || 'GET').toUpperCase();
+  const url = String(req.url || '');
+  const skip = new Set(['host', 'content-length', 'x-ec-target', 'x-ec-device-id', 'x-ec-session-id', 'x-ec-seq', 'x-ec-redirect', 'x-ec-record-mode', 'x-ec-token']);
+  const lines = ["curl -X " + method + " '" + url.replace(/'/g, "'\\''") + "'"];
+  for (const [k, v] of Object.entries(req.headers || {})) {
+    const lk = String(k).toLowerCase();
+    if (lk.startsWith('x-ec-') || skip.has(lk)) continue;
+    lines.push("  -H '" + String(k) + ": " + String(v).replace(/'/g, "'\\''") + "'");
+  }
+  // 重放要用**线上真正发出去的那份**：加密接口的 req.body 是解密后的明文，
+  // 拿它去重放，上游根本解不开（ADR-039）。
+  const body = req.rawBody || req.body || '';
+  if (body && method !== 'GET' && method !== 'HEAD') {
+    lines.push("  -d '" + String(body).replace(/'/g, "'\\''") + "'");
+  }
+  return lines.join(' \\\n');
+}
+
+let SNAP = null;
+
+function render(snap) {
+  SNAP = snap;
+  const rec = snap.record || {};
+  const req = rec.request || {};
+  const resp = rec.response || {};
+  const flags = rec.flags || {};
+  const up = rec.upstream || {};
+  const status = resp.status;
+  const params = requestParams(rec);
+  const reqHeaders = req.headers || {};
+  const resHeaders = resp.headers || {};
+
+  $('head-title').textContent = snap.title || (String(req.method || '') + ' ' + String(req.path || ''));
+  document.title = '快照 · ' + (snap.title || String(req.path || '')) + ' · EasyCharles';
+
+  const commonFold = params.common.length
+    ? '<details class="fold"><summary>通用参数 (' + params.common.length + ')</summary>' +
+      '<div class="fold-inner">' + paramsTable(params.common, '') + '</div></details>'
+    : '';
+  const reqRaw = typeof req.rawBody === 'string' ? req.rawBody : '';
+  const respRaw = typeof resp.rawBody === 'string' ? resp.rawBody : '';
+  const rawReqFold = reqRaw
+    ? '<details class="fold" open><summary>请求 Body（解密后）</summary>' +
+      '<div class="fold-inner">' + bodyBlock(req.body, req.bodyEncoding, req.bodyTruncated) + '</div></details>' +
+      '<details class="fold"><summary>密文原文</summary>' +
+      '<div class="fold-inner">' + bodyBlock(reqRaw, 'utf8', false) + '</div></details>'
+    : req.body
+      ? '<details class="fold"><summary>原始 Body' + (req.bodyTruncated ? '（已截断）' : '') + '</summary>' +
+        '<div class="fold-inner">' + bodyBlock(req.body, req.bodyEncoding, false) + '</div></details>'
+      : '';
+
+  $('root').innerHTML =
+    '<div class="note">此链接<b>打开即读、无需登录</b>，内容包含该请求的完整头与 body（可能有 token / cookie）。' +
+      '请只在可信范围内转发；不再需要时可在控制台「快照」里立即失效。</div>' +
+
+    '<div class="card">' +
+      '<div class="status-line">' +
+        '<span class="st code ' + statusClass(status) + '">' + esc(status) + '</span>' +
+        '<span class="pill">' + esc(rec.durationMs) + ' ms</span>' +
+        '<span class="pill">上游 ' + esc(up.ms) + ' ms</span>' +
+        (flags.mocked ? '<span class="tag">mock</span>' : '') +
+        (flags.streamed ? '<span class="tag other">流式</span>' : '') +
+        (flags.decrypted ? '<span class="tag">已解密</span>' : '') +
+        (flags.redirected ? '<span class="tag other">重定向</span>' : '') +
+        (up.error ? '<span class="tag other">' + esc(up.error) + '</span>' : '') +
+      '</div>' +
+      '<div class="meta" style="margin-top:8px">快照创建于 ' + esc(fmtTime(snap.createdAt)) +
+        ' · ' + esc(fmtExpire(snap.expiresAt)) + '</div>' +
+      '<div class="sec"><div class="sec-head"><span class="t">返回值</span>' +
+        '<span class="n">' + (resp.bodyEncoding === 'base64' ? 'base64' : 'JSON / text') + ' · ' + bytesLabel(resp.bodySize) + '</span>' +
+        (resp.body ? '<button data-copy="resp">复制响应</button>' : '') +
+      '</div>' +
+      bodyBlock(resp.body, resp.bodyEncoding, resp.bodyTruncated) +
+      (respRaw
+        ? '<details class="fold"><summary>密文原文</summary>' +
+          '<div class="fold-inner">' + bodyBlock(respRaw, 'utf8', false) + '</div></details>'
+        : '') +
+      '</div>' +
+    '</div>' +
+
+    '<div class="card">' +
+      '<h2>请求 <span class="pill">' + esc(req.method) + '</span></h2>' +
+      '<div class="url">' + esc(req.url) + '</div>' +
+      '<div class="sec"><div class="sec-head"><span class="t">业务参数</span>' +
+        '<span class="n">' + params.biz.length + ' 项</span>' +
+        '<button data-copy="curl">复制为 cURL</button>' +
+      '</div>' +
+      paramsTable(params.biz, '（无业务参数）') + '</div>' +
+      commonFold + rawReqFold +
+    '</div>' +
+
+    '<div class="card">' +
+      '<h2>Headers 与链路</h2>' +
+      '<div class="meta">' + esc(req.method) + ' · ' + esc(req.host) + ' · 设备 ' + esc(rec.deviceId || '-') +
+        ' · 上游协议 ' + esc(up.protocol) + ' · seq ' + esc(rec.seq) + '</div>' +
+      '<details class="fold"><summary>请求 Headers (' + Object.keys(reqHeaders).length + ')</summary>' +
+        '<div class="fold-inner">' + kvTable(reqHeaders) + '</div></details>' +
+      '<details class="fold"><summary>响应 Headers (' + Object.keys(resHeaders).length + ')</summary>' +
+        '<div class="fold-inner">' + kvTable(resHeaders) + '</div></details>' +
+      '<details class="fold"><summary>原始 JSON（可复制给别的工具）</summary>' +
+        '<div class="fold-inner">' +
+        '<div class="acts" style="margin-top:0"><button data-copy="json">复制完整 JSON</button></div>' +
+        '<pre class="body">' + esc(JSON.stringify(rec, null, 2)) + '</pre></div></details>' +
+    '</div>' +
+
+    '<div class="foot">EasyCharles 现场快照 · 只读 · 打开此链接无需权限</div>';
+}
+
+document.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-copy]');
+  if (!btn || !SNAP) return;
+  const kind = btn.dataset.copy;
+  const rec = SNAP.record || {};
+  const text = kind === 'resp' ? ((rec.response || {}).body || '')
+    : kind === 'curl' ? toCurl(rec)
+    : JSON.stringify(rec, null, 2);
+  const old = btn.textContent;
+  copyText(text, () => { btn.textContent = '已复制'; setTimeout(() => { btn.textContent = old; }, 1200); });
+});
+
+const token = decodeURIComponent(location.pathname.replace(/^\/s\//, '').replace(/\/+$/, ''));
+if (!token) {
+  $('root').innerHTML = '<div class="empty"><h1>链接不完整</h1>缺少快照 token</div>';
+} else {
+  fetch('/__ec/s/' + encodeURIComponent(token))
+    .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+    .then(render)
+    .catch(() => {
+      $('head-title').textContent = '不可用';
+      $('root').innerHTML = '<div class="empty"><h1>快照不存在或已过期</h1>' +
+        '链接可能已被创建者失效，或已超过有效期。<br>请向分享者重新要一个链接。</div>';
+    });
+}
+</script>
+</body>
+</html>

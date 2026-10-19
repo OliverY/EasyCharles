@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 270" width="1000" height="270" role="img"
+     aria-label="接口返回值按版本存档：重构前把项目存成 V1.0，重构后回退或对照，旧版本一条不删">
+  <title>接口返回值按版本存档</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .node   { font-size: 13.5px; font-weight: 700; fill: #1f2937; }
+    .nodesub{ font-size: 10.5px; fill: #6b7280; }
+    .code   { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10px; }
+    .chip   { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10px; fill: #2b6cb0; text-anchor: middle; }
+    .arlab  { font-size: 10.5px; fill: #6b7280; text-anchor: middle; }
+    .good   { font-size: 11px; fill: #2b6cb0; }
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="270" fill="#ffffff"/>
+
+  <!-- 重构前 -->
+  <rect x="24" y="40" width="220" height="152" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="44" y="68">重构前</text>
+  <text class="nodesub" x="44" y="90">订单模块 · 8 个接口</text>
+  <text class="nodesub" x="44" y="110">24 条返回值</text>
+  <text class="code" x="44" y="136" fill="#374151">POST /order/list</text>
+  <text class="good" x="44" y="170">✓ 存一版就够</text>
+
+  <!-- 存档 -->
+  <line x1="248" y1="116" x2="298" y2="116" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="arlab" x="273" y="104">存档</text>
+
+  <!-- 版本栈 -->
+  <rect x="304" y="32" width="388" height="170" rx="14" fill="#f7fafe" stroke="#cfe0f3"/>
+  <text class="node" x="320" y="54" fill="#2b6cb0">版本存档 · 不可变</text>
+
+  <rect x="320" y="66" width="356" height="34" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <rect x="330" y="72" width="46" height="22" rx="6" fill="#f7fafe" stroke="#cfe0f3"/>
+  <text class="chip" x="353" y="87">V1.0</text>
+  <text class="nodesub" x="386" y="88">8 接口 · 24 返回值</text>
+  <text class="nodesub" x="664" y="88" text-anchor="end">09-12</text>
+
+  <rect x="320" y="108" width="356" height="34" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <rect x="330" y="114" width="46" height="22" rx="6" fill="#f7fafe" stroke="#cfe0f3"/>
+  <text class="chip" x="353" y="129">V1.1</text>
+  <text class="nodesub" x="386" y="130">9 接口 · 27 返回值</text>
+  <text class="nodesub" x="664" y="130" text-anchor="end">09-26</text>
+
+  <rect x="320" y="150" width="356" height="34" rx="8" fill="#ffffff" stroke="#cfe0f3"/>
+  <rect x="330" y="156" width="46" height="22" rx="6" fill="#f7fafe" stroke="#cfe0f3"/>
+  <text class="chip" x="353" y="171">V1.2</text>
+  <text class="nodesub" x="386" y="172">9 接口 · 30 返回值</text>
+  <text class="nodesub" x="604" y="172" text-anchor="end">10-18</text>
+  <rect x="614" y="157" width="40" height="18" rx="6" fill="#e8f1fb" stroke="#cfe0f3"/>
+  <text class="chip" x="634" y="170">当前</text>
+
+  <!-- 回退 -->
+  <line x1="696" y1="116" x2="746" y2="116" stroke="#2b6cb0" stroke-width="1.6" marker-end="url(#arG)"/>
+  <text class="arlab" x="721" y="104">回退</text>
+
+  <!-- 重构后 -->
+  <rect x="752" y="40" width="224" height="152" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="772" y="68">重构后</text>
+  <text class="nodesub" x="772" y="90">接口字段改了、数据要重造</text>
+  <text class="code" x="772" y="116" fill="#b42318">{"code":0,"data":[…]}</text>
+  <text class="nodesub" x="772" y="140">回退到 V1.0，数据原样回来</text>
+  <text class="good" x="772" y="170">✓ 不用再造一遍</text>
+
+  <!-- 底注 -->
+  <text class="nodesub" x="500" y="232" text-anchor="middle">每次分享 / 回退追加一版，旧版本一条不删；抓到的真实响应也能一键存进项目（「Mock 此接口」）</text>
+</svg>

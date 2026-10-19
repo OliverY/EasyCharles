@@ -1,0 +1,19 @@
+{
+  "name": "easy-charles-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "EasyCharles 本地中转服务：数据面转发 + 控制面 WebSocket + 控制台",
+  "scripts": {
+    "start": "node src/index.ts",
+    "lan": "node src/index.ts --lan"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2"
+  }
+}

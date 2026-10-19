@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" width="1000" height="400" role="img"
+     aria-label="设备连上本地服务的三种方式：真机 USB、模拟器、真机 WiFi">
+  <title>设备怎么连上来</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .t      { font-size: 25px; font-weight: 700; fill: #0f172a; }
+    .sub    { font-size: 14px; fill: #6b7280; }
+    .card   { font-size: 14px; font-weight: 700; }
+    .code   { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; fill: #1f2937; }
+    .body   { font-size: 11.5px; fill: #4b5563; }
+    .warn   { font-size: 11px; fill: #b42318; }
+  </style>
+  <rect width="1000" height="400" fill="#ffffff"/>
+
+  <text class="t" x="36" y="48">设备怎么连上来</text>
+  <text class="sub" x="36" y="76">真机优先走 USB —— 服务只监听回环，不用连 WiFi，最安全</text>
+
+  <!-- 卡 1：真机 USB -->
+  <rect x="36" y="104" width="293" height="252" rx="14" fill="#f7fafe" stroke="#2b6cb0"/>
+  <text class="card" x="56" y="140" fill="#2b6cb0">真机 USB（推荐）</text>
+  <line x1="56" y1="154" x2="309" y2="154" stroke="#cfe0f3"/>
+  <rect x="52" y="170" width="261" height="34" rx="7" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="code" x="62" y="192">adb reverse tcp:8899 tcp:8899</text>
+  <rect x="52" y="212" width="261" height="34" rx="7" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="code" x="62" y="234">baseUrl = http://127.0.0.1:8899</text>
+  <text class="body" x="56" y="276">服务可以只监听回环地址，</text>
+  <text class="body" x="56" y="296">不用连 WiFi，零网络暴露。</text>
+  <text class="body" x="56" y="330">Android 模拟器之外的首选。</text>
+
+  <!-- 卡 2：模拟器 -->
+  <rect x="353" y="104" width="293" height="252" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="card" x="373" y="140" fill="#374151">模拟器</text>
+  <line x1="373" y1="154" x2="626" y2="154" stroke="#e4e7ec"/>
+  <rect x="369" y="170" width="261" height="34" rx="7" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="code" x="379" y="192">baseUrl = http://10.0.2.2:8899</text>
+  <rect x="369" y="212" width="261" height="34" rx="7" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="code" x="379" y="234">iOS 模拟器：localhost</text>
+  <text class="body" x="373" y="276">10.0.2.2 是 Android 模拟器</text>
+  <text class="body" x="373" y="296">指向宿主机的固定地址。</text>
+  <text class="body" x="373" y="330">同样走回环，零暴露。</text>
+
+  <!-- 卡 3：局域网 Mac（标准用法） -->
+  <rect x="670" y="104" width="293" height="252" rx="14" fill="#fffbfa" stroke="#f3d3cf"/>
+  <text class="card" x="690" y="140" fill="#b42318">局域网 Mac</text>
+  <line x1="690" y1="154" x2="943" y2="154" stroke="#f3d3cf"/>
+  <rect x="686" y="170" width="261" height="34" rx="7" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="code" x="696" y="192">baseUrl = http://&lt;Mac 内网IP&gt;:8899</text>
+  <rect x="686" y="212" width="261" height="34" rx="7" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="code" x="696" y="234">bash scripts/deploy.sh</text>
+  <text class="body" x="690" y="276">手机与那台 Mac 需在同一网段。</text>
+  <text class="warn" x="690" y="300">⚠ 服务带 --lan，等于一台开放中转代理，</text>
+  <text class="warn" x="690" y="318">同网段任何人都能借它 IP 发请求。</text>
+  <text class="warn" x="690" y="340">只在可信网络开着，用完即停。</text>
+</svg>

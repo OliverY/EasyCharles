@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 285" width="1000" height="285" role="img"
+     aria-label="改返回值：一个接口配多条返回值，指定、按顺序、循环、随机，每条可单独设状态码">
+  <title>改返回值：一个接口可以配好几条</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .h      { font-size: 14px; font-weight: 700; fill: #1f2937; }
+    .code   { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; fill: #1f2937; }
+    .body   { font-size: 10.5px; fill: #6b7280; }
+    .node   { font-size: 15px; font-weight: 700; fill: #1f2937; }
+    .nodesub{ font-size: 11px; fill: #6b7280; }
+    .st     { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .nm     { font-size: 10.5px; fill: #6b7280; text-anchor: end; }
+    .chip   { font-size: 11px; fill: #374151; }
+    .good   { font-size: 11px; fill: #2b6cb0; }
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="285" fill="#ffffff"/>
+
+  <!-- 接口卡：一个接口 + 三条返回值 -->
+  <rect x="24" y="24" width="680" height="196" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="h" x="46" y="56">POST /api/login</text>
+  <text class="body" x="682" y="56" text-anchor="end">一个接口，3 条返回值</text>
+
+  <!-- 第 1 条 -->
+  <rect x="44" y="70" width="640" height="36" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <rect x="54" y="77" width="46" height="22" rx="11" fill="#f7fafe" stroke="#cfe0f3"/>
+  <text class="st" x="77" y="92" fill="#2b6cb0">200</text>
+  <text class="code" x="114" y="93">{ "code": 0, "token": "..." }</text>
+  <text class="nm" x="672" y="93">登录成功</text>
+
+  <!-- 第 2 条 -->
+  <rect x="44" y="114" width="640" height="36" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <rect x="54" y="121" width="46" height="22" rx="11" fill="#fffbfa" stroke="#f3d3cf"/>
+  <text class="st" x="77" y="136" fill="#b42318">401</text>
+  <text class="code" x="114" y="137">{ "code": 1001, "msg": "密码错误" }</text>
+  <text class="nm" x="672" y="137">密码错误</text>
+
+  <!-- 第 3 条 -->
+  <rect x="44" y="158" width="640" height="36" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <rect x="54" y="165" width="46" height="22" rx="11" fill="#fffbfa" stroke="#f3d3cf"/>
+  <text class="st" x="77" y="180" fill="#b42318">403</text>
+  <text class="code" x="114" y="181">{ "code": 403, "msg": "风控拦截" }</text>
+  <text class="nm" x="672" y="181">风控拦截</text>
+
+  <text class="good" x="46" y="210">↻ 循环返回：① → ② → ③ → ①</text>
+
+  <!-- 箭头 -->
+  <line x1="710" y1="120" x2="736" y2="120" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+
+  <!-- 手机 -->
+  <rect x="742" y="24" width="234" height="196" rx="14" fill="#f7fafe" stroke="#2b6cb0"/>
+  <text class="node" x="764" y="58">手机</text>
+  <text class="nodesub" x="764" y="80">客户端三个分支</text>
+  <text class="nodesub" x="764" y="112">· 正常拿到 token</text>
+  <text class="nodesub" x="764" y="134">· 提示密码错误</text>
+  <text class="nodesub" x="764" y="156">· 提示被风控拦下</text>
+  <text class="good" x="764" y="192">一趟全走完</text>
+
+  <!-- 底部说明 -->
+  <line x1="24" y1="240" x2="976" y2="240" stroke="#f1f5f9"/>
+  <text class="chip" x="24" y="266">命中方式：指定某一条 · 按顺序 · 随机</text>
+  <text class="chip" x="360" y="266">按顺序：停在最后 / 循环 / 放行真实服务器</text>
+  <text class="chip" x="726" y="266">每条可单独设状态码</text>
+</svg>

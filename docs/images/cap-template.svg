@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 270" width="1000" height="270" role="img"
+     aria-label="模板：私有项目分享成团队共享模板，同事复制使用，改完再分享回去">
+  <title>调好的配置能存下来、发给同事</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .node   { font-size: 14px; font-weight: 700; fill: #1f2937; }
+    .nodesub{ font-size: 10.5px; fill: #6b7280; }
+    .arlab  { font-size: 11px; fill: #6b7280; text-anchor: middle; }
+    .chip   { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 10px; fill: #2b6cb0; text-anchor: middle; }
+    .good   { font-size: 11px; fill: #2b6cb0; }
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="270" fill="#ffffff"/>
+
+  <!-- 我的私有项目 -->
+  <rect x="24" y="36" width="268" height="146" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="46" y="70">我的私有项目</text>
+  <text class="nodesub" x="46" y="94">登录模块 · 5 个接口</text>
+  <text class="nodesub" x="46" y="114">15 条返回值</text>
+  <text class="good" x="46" y="152">✓ 参与命中，改完就生效</text>
+
+  <!-- 分享 -->
+  <line x1="296" y1="109" x2="370" y2="109" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="arlab" x="333" y="98">分享</text>
+
+  <!-- 共享模板 -->
+  <rect x="374" y="36" width="284" height="146" rx="14" fill="#f7fafe" stroke="#2b6cb0"/>
+  <text class="node" x="396" y="70" fill="#2b6cb0">共享模板</text>
+  <text class="nodesub" x="396" y="94">团队可见 · 只读</text>
+  <rect x="396" y="106" width="34" height="22" rx="6" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="chip" x="413" y="121">v1</text>
+  <rect x="438" y="106" width="34" height="22" rx="6" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="chip" x="455" y="121">v2</text>
+  <rect x="480" y="106" width="34" height="22" rx="6" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="chip" x="497" y="121">v3</text>
+  <text class="nodesub" x="396" y="152">每次分享 / 回退都留一版，可回退</text>
+
+  <!-- 复制 -->
+  <line x1="662" y1="109" x2="736" y2="109" stroke="#94a3b8" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="arlab" x="699" y="98">复制</text>
+
+  <!-- 同事 -->
+  <rect x="740" y="36" width="236" height="146" rx="14" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="762" y="70">同事的项目</text>
+  <text class="nodesub" x="762" y="94">变成他自己的私有项目</text>
+  <text class="nodesub" x="762" y="114">拿去直接用</text>
+  <text class="nodesub" x="762" y="152">改坏了回退上一版</text>
+
+  <!-- 回分享 -->
+  <path d="M858,182 C858,232 516,232 516,196" fill="none" stroke="#2b6cb0" stroke-width="1.6"
+        stroke-dasharray="5 4" marker-end="url(#arG)"/>
+  <text class="good" x="687" y="252" text-anchor="middle">改完再分享回去 = 整项目覆盖（提交前会告诉你增删几条）</text>
+</svg>

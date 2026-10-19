@@ -1,0 +1,7 @@
+{
+  "name": "rot13",
+  "version": "1.0.0",
+  "spiVersion": 1,
+  "title": "ROT13（示例）",
+  "entry": "index.mjs"
+}

@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>关于 EasyCharles · 架构与接入</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --panel-2: #fbfbfc;
+    --border: #e4e7ec;
+    --border-2: #d6dae1;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --accent: #2b6cb0;
+    --accent-soft: #e8f1fb;
+    --accent-line: #cfe0f3;
+    --ok: #3b6d11;
+    --warn: #854f0b;
+    --warn-soft: #fffdf5;
+    --warn-line: #f0e0bd;
+    --err: #a32d2d;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.7 var(--sans);
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── 顶栏 ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 20px; background: rgba(255,255,255,.92);
+    backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { font-size: 15px; font-weight: 600; }
+  .brand .sub { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .spacer { flex: 1; }
+  .topbar nav { display: flex; gap: 14px; font-size: 12px; }
+  .topbar nav a { color: var(--muted); }
+  .topbar nav a:hover { color: var(--accent); }
+  .btn {
+    display: inline-block; font: inherit; font-size: 12px; padding: 5px 12px;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+    border-radius: 6px; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { opacity: .9; color: #fff; }
+
+  /* ── 布局 ── */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 72px; }
+
+  /* ── Hero ── */
+  .hero { padding: 40px 0 8px; }
+  .hero h1 { font-size: 27px; line-height: 1.35; margin: 0 0 10px; letter-spacing: -.2px; }
+  .hero .lead { font-size: 14px; color: #374151; max-width: 760px; margin: 0 0 18px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+  .chip {
+    font-size: 11.5px; padding: 3px 10px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line);
+  }
+  .chip.neutral { background: #f1efe8; color: #5f5e5a; border-color: #e6e3d8; }
+  .facts {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px; margin-bottom: 8px;
+  }
+  .fact {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+  }
+  .fact .k { font-size: 11px; color: var(--muted); }
+  .fact .v { font-size: 15px; font-weight: 600; font-family: var(--mono); }
+  .fact .v.small { font-size: 13px; font-weight: 500; }
+
+  /* ── 区块 ── */
+  section { padding-top: 44px; scroll-margin-top: 64px; }
+  h2 {
+    font-size: 18px; margin: 0 0 6px; letter-spacing: -.1px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .num {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    color: var(--accent); background: var(--accent-soft);
+    border: 1px solid var(--accent-line); border-radius: 6px; padding: 1px 7px;
+  }
+  h3 { font-size: 14px; margin: 26px 0 8px; }
+  h4 { font-size: 13px; margin: 18px 0 6px; }
+  .sec-desc { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; max-width: 820px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 14px;
+  }
+  .card.tight { padding: 14px 16px; }
+
+  /* ── 表格 ── */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f1f2f4; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 11.5px; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  td code, p code, li code { font-family: var(--mono); font-size: 11.5px; background: #f1f2f4; padding: 1px 5px; border-radius: 4px; }
+  .table-scroll { overflow-x: auto; }
+
+  /* ── 代码块 ── */
+  .codeblock { position: relative; margin: 10px 0 4px; }
+  pre {
+    margin: 0; padding: 13px 14px; background: var(--panel-2);
+    border: 1px solid var(--border); border-radius: 9px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.65;
+    white-space: pre; overflow-x: auto; color: #1f2937;
+  }
+  pre .c { color: #6b7280; }
+  .copy {
+    position: absolute; top: 7px; right: 7px; font: inherit; font-size: 11px;
+    padding: 3px 8px; border: 1px solid var(--border); background: var(--panel);
+    color: var(--muted); border-radius: 5px; cursor: pointer; opacity: 0; transition: opacity .15s;
+  }
+  .codeblock:hover .copy { opacity: 1; }
+  .copy:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ── 步骤 ── */
+  .steps { counter-reset: step; list-style: none; margin: 0; padding: 0; }
+  .steps > li {
+    position: relative; padding: 0 0 2px 34px; margin-bottom: 20px;
+  }
+  .steps > li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 1px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: 11.5px; font-weight: 600; font-family: var(--mono);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps > li > .t { font-weight: 600; font-size: 13.5px; margin-bottom: 2px; }
+  .steps > li > .d { color: var(--muted); font-size: 12.5px; }
+  .steps .d code { font-size: 11.5px; }
+
+  /* ── 图 ── */
+  .diagram {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px; overflow-x: auto;
+  }
+  .diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+  .diagram svg text { font-family: var(--sans); }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 2px 0; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid var(--border-2); }
+
+  /* ── 生命周期 ── */
+  .flow { display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px; }
+  .flow ol { margin: 0; padding-left: 20px; font-size: 12.5px; }
+  .flow li { margin-bottom: 9px; }
+  .flow li b { font-weight: 600; }
+  .flow .who {
+    display: inline-block; font-size: 10px; font-family: var(--mono); padding: 0 5px;
+    border-radius: 4px; margin-right: 5px; vertical-align: 1px;
+  }
+  .who.sdk { background: var(--accent-soft); color: var(--accent); }
+  .who.srv { background: #eef1f6; color: #44506b; }
+
+  /* ── callout ── */
+  .note {
+    border-left: 3px solid var(--accent); background: var(--panel-2);
+    padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12.5px; color: #374151;
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note b { font-weight: 600; }
+
+  footer {
+    margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--border);
+    color: var(--muted); font-size: 11.5px; display: flex; flex-wrap: wrap; gap: 6px 20px;
+  }
+
+  @media (max-width: 720px) {
+    .flow { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 22px; }
+    .topbar nav { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">EasyCharles<span class="sub">关于 / 架构与接入</span></div>
+  <div class="spacer"></div>
+  <nav>
+    <a href="#arch">架构原理</a>
+    <a href="#connect">客户端接入</a>
+    <a href="#protocol">协议速查</a>
+    <a href="#security">安全边界</a>
+  </nav>
+  <a class="btn primary" href="/">返回控制台</a>
+</header>
+
+<div class="wrap">
+
+  <!-- ══ Hero ══ -->
+  <div class="hero">
+    <h1>不装证书的客户端接口联调工具：<br>把「网络层劫持」换成「应用层显式引流」</h1>
+    <p class="lead">
+      Charles 类工具靠中间人证书在 CONNECT 隧道里解密流量；EasyCharles 放弃这条路——
+      App 内的拦截器把请求<strong>显式改写</strong>发往本地服务，本地服务再转发到真实服务器，
+      在这个中转过程中完成记录、mock、顺序返回与解密展示。因此没有根证书、不碰 TLS、
+      也不受证书绑定（pinning）影响。
+    </p>
+    <div class="chips">
+      <span class="chip">不装根证书</span>
+      <span class="chip">不受 pinning 影响</span>
+      <span class="chip">顺序 mock + 设备隔离</span>
+      <span class="chip">控制面 / 数据面分离</span>
+      <span class="chip">fail-open 不阻塞业务</span>
+      <span class="chip neutral">代价：需要接入 SDK（仅 debug）</span>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="k">服务版本</div><div class="v">v__EC_VERSION__</div></div>
+      <div class="fact"><div class="k">协议版本</div><div class="v">v__EC_PROTOCOL__</div></div>
+      <div class="fact"><div class="k">默认端口</div><div class="v">__EC_PORT__</div></div>
+      <div class="fact"><div class="k">服务端运行时</div><div class="v small">Node + TS · 零构建</div></div>
+      <div class="fact"><div class="k">唯一运行时依赖</div><div class="v small">ws</div></div>
+    </div>
+  </div>
+
+  <!-- ══ 1. 架构原理图 ══ -->
+  <section id="arch">
+    <h2><span class="num">01</span>架构原理图</h2>
+    <p class="sec-desc">
+      三条链路：<b>数据面</b>（App → 本地服务 → 真实上游）、<b>控制面</b>（SDK / 控制台 ↔ 本地服务 WebSocket）、
+      <b>管理面</b>（浏览器 ↔ 控制台 API）。控制面与数据面严格分离，任一断线不影响转发。
+    </p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 1080 780" role="img" aria-label="EasyCharles 架构原理图">
+        <defs>
+          <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#9aa3af"></path>
+          </marker>
+          <marker id="arwA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"></path>
+          </marker>
+        </defs>
+
+        <!-- ═══ App ═══ -->
+        <rect x="40" y="56" width="560" height="210" rx="12" fill="#ffffff" stroke="#e4e7ec"></rect>
+        <text x="56" y="80" font-size="12.5" font-weight="600" fill="#1f2937">App（仅 debug 构建）</text>
+        <text x="584" y="80" font-size="10" fill="#6b7280" text-anchor="end">Android · iOS 预留</text>
+        <line x1="41" y1="94" x2="599" y2="94" stroke="#e4e7ec"></line>
+
+        <rect x="60" y="108" width="520" height="36" rx="8" fill="#f9fafb" stroke="#e4e7ec"></rect>
+        <text x="74" y="131" font-size="11.5" fill="#374151">业务拦截器链：加解密 · 鉴权 · 埋点 · 重试 …</text>
+
+        <rect x="60" y="156" width="520" height="94" rx="10" fill="#e8f1fb" stroke="#2b6cb0"></rect>
+        <text x="74" y="178" font-size="12" font-weight="600" fill="#2b6cb0">EasyCharlesInterceptor（必须挂在最外层）</text>
+
+        <rect x="74" y="190" width="248" height="48" rx="7" fill="#ffffff" stroke="#cfe0f3"></rect>
+        <text x="86" y="208" font-size="11" font-weight="600" fill="#1f2937">数据面</text>
+        <text x="86" y="225" font-size="10" fill="#6b7280">URL 改写 → /__ec/p&lt;path&gt;</text>
+
+        <rect x="336" y="190" width="230" height="48" rx="7" fill="#ffffff" stroke="#cfe0f3"></rect>
+        <text x="348" y="208" font-size="11" font-weight="600" fill="#1f2937">控制面</text>
+        <text x="348" y="225" font-size="10" fill="#6b7280">握手 /__ec/hello · WS 心跳</text>
+
+        <!-- App → 服务 -->
+        <line x1="320" y1="266" x2="320" y2="342" stroke="#9aa3af" stroke-width="1.6" marker-end="url(#arw)"></line>
+        <text x="340" y="286" font-size="11" font-weight="600" fill="#2b6cb0">接入通道（三选一）</text>
+        <text x="340" y="303" font-size="10.5" fill="#6b7280">真机 USB：adb reverse tcp:__EC_PORT__ tcp:__EC_PORT__</text>
+        <text x="340" y="319" font-size="10.5" fill="#6b7280">Android 模拟器：http://10.0.2.2:__EC_PORT__</text>
+        <text x="340" y="335" font-size="10.5" fill="#6b7280">真机 WiFi：http://&lt;内网IP&gt;:__EC_PORT__（需 --lan）</text>
+
+        <!-- ═══ 本地服务 ═══ -->
+        <rect x="40" y="352" width="560" height="250" rx="12" fill="#ffffff" stroke="#e4e7ec"></rect>
+        <text x="56" y="376" font-size="12.5" font-weight="600" fill="#1f2937">本地服务 · Node + TS</text>
+        <text x="584" y="376" font-size="10" fill="#6b7280" text-anchor="end">零构建 · 唯一依赖 ws</text>
+        <line x1="41" y1="390" x2="599" y2="390" stroke="#e4e7ec"></line>
+
+        <rect x="60" y="400" width="520" height="32" rx="7" fill="#f9fafb" stroke="#e4e7ec"></rect>
+        <text x="74" y="420" font-size="10.5" fill="#374151">index.ts 路由分派：/__ec/hello · /__ec/api/* · /__ec/p · / · 兼容路由</text>
+
+        <rect x="60" y="444" width="248" height="68" rx="8" fill="#fbfcfd" stroke="#e4e7ec"></rect>
+        <text x="72" y="464" font-size="11" font-weight="600" fill="#1f2937">data-plane.ts</text>
+        <text x="72" y="481" font-size="10" fill="#6b7280">转发 · 记录 · 规则命中</text>
+        <text x="72" y="497" font-size="10" fill="#6b7280">bounded buffering / 背压</text>
+
+        <rect x="332" y="444" width="248" height="68" rx="8" fill="#fbfcfd" stroke="#e4e7ec"></rect>
+        <text x="344" y="464" font-size="11" font-weight="600" fill="#1f2937">control-plane.ts</text>
+        <text x="344" y="481" font-size="10" fill="#6b7280">WS 注册 · 心跳 · 指令</text>
+        <text x="344" y="497" font-size="10" fill="#6b7280">推送按设备归属过滤</text>
+
+        <rect x="60" y="524" width="248" height="68" rx="8" fill="#fbfcfd" stroke="#e4e7ec"></rect>
+        <text x="72" y="544" font-size="11" font-weight="600" fill="#1f2937">rules.ts</text>
+        <text x="72" y="561" font-size="10" fill="#6b7280">glob / re: 匹配 · 序列 mock</text>
+        <text x="72" y="577" font-size="10" fill="#6b7280">指针按 deviceId 隔离</text>
+
+        <rect x="332" y="524" width="248" height="68" rx="8" fill="#fbfcfd" stroke="#e4e7ec"></rect>
+        <text x="344" y="544" font-size="11" font-weight="600" fill="#1f2937">store.ts</text>
+        <text x="344" y="561" font-size="10" fill="#6b7280">记录 / 设备（内存）</text>
+        <text x="344" y="577" font-size="10" fill="#6b7280">用户 / 绑定落盘 .data/</text>
+
+        <!-- 服务 → 上游 -->
+        <line x1="200" y1="602" x2="200" y2="684" stroke="#9aa3af" stroke-width="1.6" marker-end="url(#arw)"></line>
+        <text x="216" y="624" font-size="11" font-weight="600" fill="#2b6cb0">转发（数据面）</text>
+        <text x="216" y="641" font-size="10.5" fill="#6b7280">剥离全部 X-EC-* · 重写 Host</text>
+        <text x="216" y="657" font-size="10.5" fill="#6b7280">Accept-Encoding: identity · 上游错误不重试</text>
+
+        <rect x="40" y="690" width="560" height="72" rx="12" fill="#ffffff" stroke="#e4e7ec"></rect>
+        <text x="56" y="714" font-size="12" font-weight="600" fill="#1f2937">真实上游服务器</text>
+        <text x="56" y="734" font-size="10.5" fill="#6b7280">api.foo.com 等业务后端 —— TLS 由 App 正常发起，我们不参与劫持</text>
+
+        <!-- ═══ 右栏：关键机制 ═══ -->
+        <rect x="640" y="56" width="400" height="210" rx="12" fill="#ffffff" stroke="#e4e7ec"></rect>
+        <text x="656" y="80" font-size="12.5" font-weight="600" fill="#1f2937">关键机制</text>
+        <line x1="641" y1="94" x2="1039" y2="94" stroke="#e4e7ec"></line>
+        <text x="656" y="118" font-size="11" fill="#374151">• 不劫持 TLS：不需要装根证书</text>
+        <text x="656" y="142" font-size="11" fill="#374151">• 不受证书绑定（pinning）影响</text>
+        <text x="656" y="166" font-size="11" fill="#374151">• App → 本地服务为明文 HTTP（仅 debug）</text>
+        <text x="656" y="190" font-size="11" fill="#374151">• 数据面不鉴权，边界 = 监听地址</text>
+        <text x="656" y="214" font-size="11" fill="#374151">• 控制面与数据面分离，互不阻塞</text>
+        <text x="656" y="238" font-size="11" fill="#374151">• fail-open：连不上就直连真实服务器</text>
+
+        <!-- 能力边界 -->
+        <rect x="640" y="276" width="400" height="64" rx="10" fill="#fffdf5" stroke="#f0e0bd"></rect>
+        <text x="656" y="298" font-size="10.5" font-weight="600" fill="#854f0b">⚠ 能力边界</text>
+        <text x="656" y="316" font-size="10" fill="#6b7280">只覆盖接入了 SDK 的 HTTP 流量</text>
+        <text x="656" y="332" font-size="10" fill="#6b7280">IM 长连接信令 / 未接 SDK 的三方组件抓不到</text>
+
+        <!-- ═══ 控制台 ═══ -->
+        <line x1="604" y1="480" x2="636" y2="480" stroke="#2b6cb0" stroke-width="2" marker-end="url(#arwA)" marker-start="url(#arwA)"></line>
+        <rect x="640" y="352" width="400" height="250" rx="12" fill="#ffffff" stroke="#e4e7ec"></rect>
+        <text x="656" y="376" font-size="12.5" font-weight="600" fill="#1f2937">控制台（浏览器单页）</text>
+        <text x="1024" y="376" font-size="10" fill="#6b7280" text-anchor="end">/</text>
+        <line x1="641" y1="390" x2="1039" y2="390" stroke="#e4e7ec"></line>
+        <text x="656" y="412" font-size="10.5" font-weight="600" fill="#2b6cb0">↔ WebSocket /__ec/ws（subscribe + session）</text>
+        <text x="656" y="440" font-size="11" fill="#374151">• 实时记录列表 / 详情 / 重定向链</text>
+        <text x="656" y="464" font-size="11" fill="#374151">• 规则编辑 · 序列指针重置（command）</text>
+        <text x="656" y="488" font-size="11" fill="#374151">• 设备绑定 / 解绑 → 决定数据可见性</text>
+        <text x="656" y="512" font-size="11" fill="#374151">• 登录：手机号 + 全局口令（--password）</text>
+        <text x="656" y="536" font-size="11" fill="#374151">• 记录与推送按手机号空间过滤</text>
+        <text x="656" y="564" font-size="10" fill="#6b7280">控制台连的是同一台本地服务，无需额外配置</text>
+
+        <!-- 鉴权口径 -->
+        <rect x="640" y="690" width="400" height="72" rx="12" fill="#f9fafb" stroke="#e4e7ec"></rect>
+        <text x="656" y="712" font-size="11" font-weight="600" fill="#1f2937">三面鉴权口径（ADR-015）</text>
+        <text x="656" y="731" font-size="10" fill="#6b7280">数据面 不鉴权 · 靠网络边界</text>
+        <text x="656" y="747" font-size="10" fill="#6b7280">控制面 SDK 免鉴权 / 控制台必填登录会话</text>
+      </svg>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:#e8f1fb;border-color:#2b6cb0"></i>SDK 拦截器（承接数据面 + 控制面）</span>
+      <span><i style="background:#fbfcfd"></i>本地服务内部模块</span>
+      <span><i style="background:#fffdf5;border-color:#f0e0bd"></i>能力边界与取舍</span>
+      <span>灰色箭头 = 数据面&amp;接入通道　绿色箭头 = WebSocket 控制面</span>
+    </div>
+
+    <h3>一个请求的完整生命周期</h3>
+    <div class="card">
+      <div class="flow">
+        <ol>
+          <li><span class="who sdk">SDK</span> 缓冲 request body（body 只能写一次，后续所有回放基于快照）</li>
+          <li><span class="who sdk">SDK</span> URL 改写为 <code>/__ec/p&lt;path&gt;</code>，注入 <code>X-EC-Target</code>
+              / <code>Device-Id</code> / <code>Session-Id</code> / <code>App-Id</code> / <code>Seq</code></li>
+          <li><span class="who srv">服务</span> 解析 <code>X-EC-Target</code> 得到真实目标；失败返回 <code>400 EC_BAD_TARGET</code></li>
+          <li><span class="who srv">服务</span> 规则引擎命中？→ mock（序列指针 / delay），否则 passthrough</li>
+        </ol>
+        <ol start="5">
+          <li><span class="who srv">服务</span> 剥离全部 <code>X-EC-*</code> 与 hop-by-hop 头，重写 <code>Host</code>，强制
+              <code>Accept-Encoding: identity</code></li>
+          <li><span class="who srv">服务</span> 转发上游：默认 ≤512KB 缓冲转发，否则流式；上游错误 → <code>502/504</code>，<b>绝不重试</b></li>
+          <li><span class="who srv">服务</span> 响应边转发边缓冲，记录实际传输字节数；超阈值只留采样</li>
+          <li><span class="who srv">服务</span> 组装 Record → Store → 按设备归属推送控制台</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>为什么拦截器必须放最外层：</b><code>addInterceptor</code> 先加的更外层。捕获拦截器在最外层时，
+      请求方向抓到的是加密<strong>前</strong>的明文，响应方向抓到的是解密<strong>后</strong>的明文；放反了就只能看到密文。
+    </div>
+  </section>
+
+  <!-- ══ 2. 客户端接入 ══ -->
+  <section id="connect">
+    <h2><span class="num">02</span>客户端如何接入</h2>
+    <p class="sec-desc">
+      接入 = 让 App 的请求先到本地服务。<b>先选连接通道</b>（决定 <code>baseUrl</code>），再按平台挂拦截器。
+      服务端只认协议不认端类型，所以接入成本 ≈ 实现协议。
+    </p>
+
+    <h3>2.1 选一条连接通道</h3>
+    <div class="card tight">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>方式</th><th>做法</th><th>baseUrl</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>真机 USB</b>（推荐）</td>
+              <td><code>adb reverse tcp:__EC_PORT__ tcp:__EC_PORT__</code></td>
+              <td><code>http://127.0.0.1:__EC_PORT__</code></td>
+              <td>不用连 WiFi；服务可只监听回环地址，<b>最安全</b></td>
+            </tr>
+            <tr>
+              <td>Android 模拟器</td>
+              <td>无需额外配置</td>
+              <td><code>http://10.0.2.2:__EC_PORT__</code></td>
+              <td><code>10.0.2.2</code> 是模拟器里的宿主机回环</td>
+            </tr>
+            <tr>
+              <td>iOS 模拟器</td>
+              <td>无需额外配置</td>
+              <td><code>http://localhost:__EC_PORT__</code></td>
+              <td>模拟器与宿主机共享网络</td>
+            </tr>
+            <tr>
+              <td>真机 WiFi</td>
+              <td>服务端加 <code>--lan</code></td>
+              <td><code>http://&lt;电脑内网IP&gt;:__EC_PORT__</code></td>
+              <td>见下方安全提示，<b>用完即关</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note warn">
+      <b>局域网模式的代价：</b>数据面不鉴权，<code>--lan</code> 会让你的机器等价于一个开放中转代理，
+      同网段任何人都能借你的 IP 发请求。只在可信网络里临时开启。
+    </div>
+
+    <h3>2.2 Android 接入（5 步）</h3>
+    <ol class="steps">
+      <li>
+        <div class="t">引入 SDK 模块</div>
+        <div class="d"><code>settings.gradle.kts</code></div>
+        <div class="codeblock"><pre>include(":easy-charles")
+project(":easy-charles").projectDir = file("../easy-charles/android-sdk/easy-charles")</pre></div>
+        <div class="d" style="margin-top:8px"><code>app/build.gradle.kts</code> —— 只在 debug 构建引入，release 包里一行代码都不会有</div>
+        <div class="codeblock"><pre>dependencies {
+    debugImplementation(project(":easy-charles"))
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+}</pre></div>
+        <div class="d">SDK 对 OkHttp 是 <code>compileOnly</code>，实际版本由宿主 App 提供，避免版本冲突。</div>
+      </li>
+      <li>
+        <div class="t">允许明文（仅 debug sourceSet）</div>
+        <div class="d">Android 9+ 默认禁明文。放到 <code>app/src/debug/res/xml/network_security_config.xml</code>：</div>
+        <div class="codeblock"><pre>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;network-security-config&gt;
+    &lt;domain-config cleartextTrafficPermitted="true"&gt;
+        &lt;domain includeSubdomains="false"&gt;127.0.0.1&lt;/domain&gt;
+    &lt;/domain-config&gt;
+&lt;/network-security-config&gt;</pre></div>
+        <div class="d" style="margin-top:8px"><code>app/src/debug/AndroidManifest.xml</code></div>
+        <div class="codeblock"><pre>&lt;manifest&gt;
+    &lt;application android:networkSecurityConfig="@xml/network_security_config" /&gt;
+&lt;/manifest&gt;</pre></div>
+      </li>
+      <li>
+        <div class="t">初始化（Application.onCreate）</div>
+        <div class="codeblock"><pre>class App : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        EasyCharles.init(
+            this,
+            EasyCharles.Config(
+                // 模拟器 10.0.2.2；真机 USB 用 127.0.0.1
+                baseUrl = "http://127.0.0.1:__EC_PORT__",
+                reportUserName = false,   // userName 属个人信息，默认不上报
+                env = "test",
+            ),
+        )
+    }
+}</pre></div>
+        <div class="d">非 debuggable 进程里所有能力自动 no-op（<code>debugImplementation</code> + <code>BuildConfig.DEBUG</code> + 运行时 <code>FLAG_DEBUGGABLE</code> 三重保险）。</div>
+      </li>
+      <li>
+        <div class="t">挂拦截器（顺序是关键）</div>
+        <div class="codeblock"><pre>val client = OkHttpClient.Builder()
+    .addInterceptor(EasyCharlesInterceptor())  // ← 必须放在最外层
+    .addInterceptor(yourCryptoInterceptor)     // ← 业务的加解密拦截器
+    .build()</pre></div>
+      </li>
+      <li>
+        <div class="t">业务信息打标（可选）</div>
+        <div class="d">登录成功后调用，控制台设备标签会实时刷新：</div>
+        <div class="codeblock"><pre>EasyCharles.setUser(userId = "10086", userName = "张三")
+EasyCharles.setEnv("test")
+EasyCharles.setTags(listOf("IM", "支付"))</pre></div>
+      </li>
+    </ol>
+    <div class="note">
+      <b>首次联调：</b>启动本地服务 → 打开控制台（<a href="/">返回控制台</a>）→ App 启动后设备列表出现你的机器
+      → 点「绑定」把它划进你的手机号空间，之后记录只对该空间可见。
+    </div>
+
+    <h3>2.3 iOS 接入（P5 预留）</h3>
+    <div class="card tight">
+      <p style="margin:0 0 8px">
+        服务端只认协议不认端类型，iOS 端接入成本 ≈ 实现协议：把 URLProtocol 子类挂到
+        <code>URLSessionConfiguration.protocolClasses</code>，在 <code>startLoading</code> 里做与 Android 相同的
+        URL 改写与 <code>X-EC-*</code> 头注入；ATS 明文用 <code>NSAllowsLocalNetworking</code> 放行本地地址。
+      </p>
+      <p style="margin:0;color:var(--muted)">
+        协议契约见 <code>docs/protocol.md</code>；当前仓库只提供 Android SDK。
+      </p>
+    </div>
+
+    <h3>2.4 已有第三方客户端（可选兼容层）</h3>
+    <div class="card tight">
+      <p style="margin:0 0 8px">
+        若手上已有别的抓包客户端，通过「自定义路由前缀 + 自定义请求头传真实目标地址」，可用下列参数让本服务一并接管。
+        默认关闭，仓库内不内置任何特定客户端的协议常量。
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>参数</th><th>说明</th><th>默认</th></tr></thead>
+          <tbody>
+            <tr><td><code>--compat-route /a,/b</code></td><td>额外挂载为数据面的路由前缀</td><td>空（关闭）</td></tr>
+            <tr><td><code>--compat-target-header</code></td><td>承载真实目标 URL 的请求头</td><td><code>x-compat-original-url</code></td></tr>
+            <tr><td><code>--compat-device-header</code></td><td>设备展示名请求头</td><td><code>x-compat-device-name</code></td></tr>
+            <tr><td><code>--compat-user-id-header</code></td><td>稳定用户 ID（用于设备去重）</td><td><code>x-compat-user-id</code></td></tr>
+            <tr><td><code>--compat-user-name-header</code></td><td>用户名请求头</td><td><code>x-compat-user-name</code></td></tr>
+            <tr><td><code>--app-id</code></td><td>这类客户端在控制台显示的 appId</td><td><code>external-client</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3>2.5 30 秒自测（不依赖真实服务器）</h3>
+    <div class="card tight">
+      <div class="codeblock"><pre><span class="c"># 另开一个终端（在 server/ 目录下），假上游跑在 9099</span>
+node tools/mock-upstream.ts</pre></div>
+      <div class="codeblock"><pre><span class="c"># 模拟 SDK 改写后的请求（控制台端口见顶栏「控制台」一行）</span>
+curl -X POST 'http://127.0.0.1:__EC_PORT__/__ec/p/api/echo' \
+  -H 'X-EC-Target: http://127.0.0.1:9099/api/echo' \
+  -H 'X-EC-Device-Id: dev-001' -H 'X-EC-Session-Id: sess-001' \
+  -H 'Content-Type: application/json' -d '{"a":1}'</pre></div>
+      <div class="d" style="color:var(--muted);margin-top:8px">
+        控制台应实时出现这条记录（若设备未绑定，先在设备列表里绑定它）。
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 3. 协议速查 ══ -->
+  <section id="protocol">
+    <h2><span class="num">03</span>协议速查</h2>
+    <p class="sec-desc">协议 v__EC_PROTOCOL__ 是三端唯一的契约基准。完整定义见 <code>docs/protocol.md</code>。</p>
+
+    <h3>三个面</h3>
+    <div class="card tight">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>面</th><th>用途</th><th>路径</th><th>鉴权</th></tr></thead>
+          <tbody>
+            <tr><td><b>数据面</b></td><td>请求转发与记录</td><td><code>/__ec/p&lt;原始 path&gt;</code></td><td><b>不鉴权</b>（依赖监听地址边界）</td></tr>
+            <tr><td><b>控制面</b></td><td>设备注册 · 心跳 · 实时推送 · 下发指令</td><td><code>WS /__ec/ws</code></td><td>SDK <code>hello</code> 免鉴权；控制台 <code>subscribe</code> 必填登录会话</td></tr>
+            <tr><td><b>管理面</b></td><td>控制台 API 与静态资源</td><td><code>/__ec/api/*</code>、<code>/</code>、<code>/about</code></td><td>仅 <code>/__ec/api/login</code> 免鉴权，其余 API 必填 <code>X-EC-Session</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3>数据面请求头（SDK → 服务端）</h3>
+    <div class="card tight">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Header</th><th>必填</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>X-EC-Target</code></td><td>是</td><td>原始完整 URL（含 scheme / host / path / query），必须可被 <code>new URL()</code> 解析</td></tr>
+            <tr><td><code>X-EC-Device-Id</code></td><td>是</td><td>安装级 UUID，跨会话稳定；用于设备去重与记录归属</td></tr>
+            <tr><td><code>X-EC-Session-Id</code></td><td>是</td><td>SDK 每次初始化生成</td></tr>
+            <tr><td><code>X-EC-App-Id</code></td><td>是</td><td><code>packageName</code>（Android）/ <code>bundleId</code>（iOS）</td></tr>
+            <tr><td><code>X-EC-Seq</code></td><td>否</td><td>单调递增序号，用于排序与去重；重定向链各跳共享同一值</td></tr>
+            <tr><td><code>X-EC-Record-Mode</code></td><td>否</td><td><code>full</code> | <code>meta</code> | <code>sample</code>，覆盖服务端全局配置</td></tr>
+            <tr><td><code>X-EC-Redirect</code></td><td>否</td><td><code>1</code> 表示重定向链非首跳，服务端据此置 <code>flags.redirected</code></td></tr>
+            <tr><td><code>X-EC-Token</code></td><td>否</td><td><b>预留字段，当前服务端不校验</b>；留给后续可选数据面鉴权（P1）</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note" style="margin-top:12px">
+        所有 <code>X-EC-*</code> 头在转发上游前会被<b>全部剥离</b>，不会泄漏给真实服务器。
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 4. 安全边界 ══ -->
+  <section id="security">
+    <h2><span class="num">04</span>安全边界与降级</h2>
+    <div class="card tight">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>机制</th><th>行为</th></tr></thead>
+          <tbody>
+            <tr><td><b>fail-open</b></td><td>连不上本地服务时，SDK 用重建的等价请求直连真实服务器，业务层无感知；连续失败 3 次后熔断，冷却后半开探测自动恢复</td></tr>
+            <tr><td><b>不重试上游失败</b></td><td>上游 <code>502/504/503</code> 属真实业务失败，绝不重试，避免重复提交</td></tr>
+            <tr><td><b>release 三重保险</b></td><td><code>debugImplementation</code> + <code>BuildConfig.DEBUG</code> + 运行时 <code>FLAG_DEBUGGABLE</code> 校验，非 debuggable 进程全部 no-op</td></tr>
+            <tr><td><b>设备身份</b></td><td><code>deviceId</code> 用自建 UUID 存 SharedPreferences，不用 <code>ANDROID_ID</code>（会变）也不用 IMEI（无权限 + 合规风险）</td></tr>
+            <tr><td><b>隐私</b></td><td><code>userName</code> 默认不上报，需要时显式打开 <code>reportUserName</code></td></tr>
+            <tr><td><b>控制台登录</b></td><td>手机号 + 全局口令（<code>--password</code>，默认 <code>123456</code>，<b>共享网络下必须改</b>）；首次登录即注册该手机号空间</td></tr>
+            <tr><td><b>数据可见性</b></td><td>设备绑定到手机号空间后，其他空间看不到它的记录；查询与推送都按归属过滤；绑定关系落 <code>.data/store.json</code>，重启保留</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note warn" style="margin-top:12px">
+      <b>明确的取舍：</b>数据面无鉴权 ⇒ 任何能访问该端口的人都能把它当中转代理用。因此默认只监听回环
+      （<code>adb reverse</code> / 模拟器零暴露），<code>--lan</code> 只在可信网络短时开启、用完即关。
+      可选的数据面鉴权（复用预留的 <code>X-EC-Token</code>）在路线图 P1。
+    </div>
+  </section>
+
+  <footer>
+    <span>EasyCharles v__EC_VERSION__ · 协议 v__EC_PROTOCOL__ · 端口 __EC_PORT__</span>
+    <span>文档：README.md · docs/protocol.md · docs/architecture.md · docs/decisions.md · docs/roadmap.md</span>
+  </footer>
+</div>
+
+<script>
+// 代码块一键复制
+document.querySelectorAll('pre').forEach(function (pre) {
+  var box = document.createElement('div');
+  box.className = 'codeblock';
+  pre.parentNode.insertBefore(box, pre);
+  box.appendChild(pre);
+  var btn = document.createElement('button');
+  btn.className = 'copy';
+  btn.type = 'button';
+  btn.textContent = '复制';
+  btn.onclick = function () {
+    var text = pre.innerText;
+    var done = function () { btn.textContent = '已复制'; setTimeout(function () { btn.textContent = '复制'; }, 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(text, done); });
+    } else { fallback(text, done); }
+  };
+  box.appendChild(btn);
+});
+
+function fallback(text, done) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) {}
+  document.body.removeChild(ta);
+}
+</script>
+</body>
+</html>

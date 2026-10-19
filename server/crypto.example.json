@@ -1,0 +1,46 @@
+{
+  "profiles": [
+    {
+      "id": "p_example",
+      "name": "示例：AES-128-CBC / base64 / body 形如 {\"data\":\"...\"}",
+      "alg": "aes-128-cbc",
+      "key": "<你的 16 字节密钥>",
+      "keyEncoding": "utf8",
+      "iv": "<你的 16 字节 IV>",
+      "ivEncoding": "utf8",
+      "cipherEncoding": "base64",
+      "autoPadding": true,
+      "request": { "type": "json", "field": "data" },
+      "response": { "type": "json", "field": "data" },
+      "encrypt": { "type": "json", "field": "data" }
+    },
+    {
+      "id": "p_example_gcm",
+      "name": "示例：AES-256-GCM / base64url / iv|ct|tag + ciphertext: 前缀 + query 密文",
+      "alg": "aes-256-gcm",
+      "key": "<你的 32 字节密钥（base64url）>",
+      "keyEncoding": "base64url",
+      "cipherEncoding": "base64url",
+      "aead": { "ivBytes": 12, "tagBytes": 16, "tagAt": "end" },
+      "request": { "type": "json", "field": "payload" },
+      "response": { "type": "raw", "prefix": "ciphertext:" },
+      "encrypt": { "type": "raw", "prefix": "ciphertext:" },
+      "query": { "field": "payload" }
+    }
+  ],
+  "routes": [
+    {
+      "id": "c_example",
+      "name": "示例：im 消息详情",
+      "enabled": true,
+      "profileId": "p_example",
+      "match": {
+        "method": "POST",
+        "host": "api.example.com",
+        "path": "*api/example/im/msg/detail*"
+      },
+      "request": true,
+      "response": true
+    }
+  ]
+}

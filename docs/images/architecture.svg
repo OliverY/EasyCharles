@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" width="1000" height="560" role="img"
+     aria-label="EasyCharles 整体架构：App 拦截器 → 本地服务 → 上游服务器，控制台经 WebSocket 实时接收">
+  <title>EasyCharles 整体架构</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .t        { font-size: 25px; font-weight: 700; fill: #0f172a; }
+    .sub      { font-size: 14px; fill: #6b7280; }
+    .phead    { font-size: 14px; font-weight: 700; }
+    .node     { font-size: 12.5px; font-weight: 600; fill: #1f2937; }
+    .nodesub  { font-size: 10px; fill: #6b7280; }
+    .arlabel  { font-size: 10.5px; font-weight: 600; text-anchor: middle; }
+    .foot     { font-size: 10px; fill: #9aa3af; }
+    .note     { font-size: 12px; fill: #854f0b; }
+  </style>
+  <defs>
+    <marker id="agGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+    <marker id="agGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9aa3af"/>
+    </marker>
+    <marker id="agBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="560" fill="#ffffff"/>
+
+  <text class="t" x="36" y="48">整体架构：应用层引流，不是网络层劫持</text>
+  <text class="sub" x="36" y="76">请求从 App 内的拦截器出发，经本地服务中转、记录、mock，再原样发往真实服务器</text>
+
+  <!-- ══════════ App ══════════ -->
+  <rect x="36" y="104" width="248" height="352" rx="14" fill="#ffffff" stroke="#e4e7ec"/>
+  <path d="M50 104 h220 a14 14 0 0 1 14 14 v30 h-248 v-30 a14 14 0 0 1 14 -14 z" fill="#e8f1fb"/>
+  <text class="phead" x="54" y="132" fill="#2b6cb0">App（debug 构建）</text>
+
+  <rect x="54" y="164" width="212" height="44" rx="8" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="66" y="184">业务拦截器链</text>
+  <text class="nodesub" x="66" y="199">加解密 / 鉴权 / 埋点 …</text>
+
+  <rect x="54" y="216" width="212" height="54" rx="8" fill="#e8f1fb" stroke="#2b6cb0"/>
+  <text class="node" x="66" y="237" fill="#2b6cb0">EasyCharlesInterceptor</text>
+  <text class="nodesub" x="66" y="253" fill="#2b6cb0">挂在最外层 · 抓加密前 / 解密后明文</text>
+
+  <rect x="54" y="282" width="212" height="44" rx="8" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="66" y="302">数据面</text>
+  <text class="nodesub" x="66" y="317">URL 改写 → /__ec/p&lt;path&gt; + X-EC-*</text>
+
+  <rect x="54" y="334" width="212" height="44" rx="8" fill="#f8fafc" stroke="#e4e7ec"/>
+  <text class="node" x="66" y="354">控制面 · ControlPlane</text>
+  <text class="nodesub" x="66" y="369">HTTP 握手 → WebSocket 心跳 / 指令</text>
+
+  <text class="foot" x="54" y="404">仅 debug 生效 · release 包里零代码</text>
+  <text class="foot" x="54" y="424">连不上本地服务时 fail-open，直连真实服务器</text>
+
+  <!-- ══════════ 本地服务 ══════════ -->
+  <rect x="348" y="104" width="248" height="352" rx="14" fill="#f7fafe" stroke="#cfe0f3"/>
+  <path d="M362 104 h220 a14 14 0 0 1 14 14 v30 h-248 v-30 a14 14 0 0 1 14 -14 z" fill="#d6eefe"/>
+  <text class="phead" x="366" y="132" fill="#1d4ed8">本地服务 · Node + TS 零构建</text>
+
+  <rect x="366" y="164" width="212" height="38" rx="8" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="node" x="378" y="188">index.ts · 路由分派 / 握手</text>
+
+  <rect x="366" y="212" width="101" height="56" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="node" x="376" y="234" font-size="11.5">data-plane</text>
+  <text class="nodesub" x="376" y="250">转发 · 记录 · mock</text>
+
+  <rect x="477" y="212" width="101" height="56" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="node" x="487" y="234" font-size="11.5">control-plane</text>
+  <text class="nodesub" x="487" y="250">WS · 心跳 · 推送</text>
+
+  <rect x="366" y="278" width="101" height="56" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="node" x="376" y="300" font-size="11.5">rules</text>
+  <text class="nodesub" x="376" y="316">匹配 · 序列 · 指针</text>
+
+  <rect x="477" y="278" width="101" height="56" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="node" x="487" y="300" font-size="11.5">store</text>
+  <text class="nodesub" x="487" y="316">记录 · 设备 · 用户</text>
+
+  <rect x="366" y="344" width="212" height="38" rx="8" fill="#ffffff" stroke="#cfe0f3"/>
+  <text class="node" x="378" y="368">web/index.html · 控制台单页</text>
+
+  <text class="foot" x="366" y="404">唯一运行时依赖：ws</text>
+  <text class="foot" x="366" y="424">规则 rules.json · 用户绑定 store.json</text>
+
+  <!-- ══════════ 上游服务器 ══════════ -->
+  <rect x="676" y="104" width="300" height="150" rx="14" fill="#ffffff" stroke="#e4e7ec"/>
+  <path d="M690 104 h272 a14 14 0 0 1 14 14 v30 h-300 v-30 a14 14 0 0 1 14 -14 z" fill="#f2f4f7"/>
+  <text class="phead" x="694" y="132" fill="#374151">上游服务器（真实 API）</text>
+
+  <rect x="694" y="164" width="264" height="58" rx="8" fill="#ffffff" stroke="#e4e7ec"/>
+  <text class="node" x="706" y="188">api.example.com</text>
+  <text class="nodesub" x="706" y="205">TLS 由 App 正常发起，我们不劫持</text>
+  <text class="foot" x="694" y="240">502 / 504 / 503 视为真实业务失败，绝不重试</text>
+
+  <!-- ══════════ 控制台 ══════════ -->
+  <rect x="676" y="276" width="300" height="180" rx="14" fill="#fffdf7" stroke="#f0e0bd"/>
+  <path d="M690 276 h272 a14 14 0 0 1 14 14 v30 h-300 v-30 a14 14 0 0 1 14 -14 z" fill="#fdf3dd"/>
+  <text class="phead" x="694" y="304" fill="#854f0b">控制台（浏览器）</text>
+
+  <rect x="694" y="336" width="264" height="54" rx="8" fill="#ffffff" stroke="#f0e0bd"/>
+  <text class="node" x="706" y="360">实时列表 · 详情 · 规则 · 设备</text>
+  <text class="nodesub" x="706" y="377">能看 · 能改 · 能复现</text>
+  <text class="foot" x="694" y="414">手机号登录 · 记录按设备归属隔离</text>
+  <text class="foot" x="694" y="434">WebSocket 推送，无需刷新</text>
+
+  <!-- ══════════ 连线 ══════════ -->
+  <line x1="284" y1="238" x2="348" y2="238" stroke="#2b6cb0" stroke-width="2" marker-end="url(#agGreen)"/>
+  <text class="arlabel" x="316" y="226" fill="#2b6cb0">明文 HTTP</text>
+  <line x1="348" y1="256" x2="284" y2="256" stroke="#9aa3af" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#agGray)"/>
+  <text class="arlabel" x="316" y="272" fill="#6b7280">响应</text>
+
+  <line x1="596" y1="180" x2="676" y2="180" stroke="#2b6cb0" stroke-width="2" marker-end="url(#agGreen)"/>
+  <text class="arlabel" x="636" y="168" fill="#2b6cb0">TLS 转发</text>
+  <line x1="676" y1="204" x2="596" y2="204" stroke="#9aa3af" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#agGray)"/>
+  <text class="arlabel" x="636" y="220" fill="#6b7280">响应</text>
+
+  <line x1="596" y1="360" x2="676" y2="360" stroke="#2563eb" stroke-width="2" marker-end="url(#agBlue)"/>
+  <text class="arlabel" x="636" y="348" fill="#2563eb">WS 推送</text>
+
+  <!-- ══════════ 底部说明 ══════════ -->
+  <rect x="36" y="480" width="940" height="56" rx="12" fill="#fffdf5" stroke="#f0e0bd"/>
+  <text class="note" x="56" y="505">⚠  数据面不鉴权是刻意取舍（ADR-015）：可及性完全由监听地址决定。</text>
+  <text class="note" x="56" y="524">默认只监听 127.0.0.1；--lan 会把机器变成开放中转代理，只在可信网络短时开启、用完即关。</text>
+</svg>

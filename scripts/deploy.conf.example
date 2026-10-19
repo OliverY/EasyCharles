@@ -1,0 +1,24 @@
+# EasyCharles 部署目标机配置（把这份复制成 scripts/deploy.conf 填真值）
+#
+# scripts/deploy.conf 里是内网地址，**不进 git**（已在 .gitignore 里）。
+# 只写部署目标与目录，不要在这里写口令——口令在远端的 ~/apps/easy-charles.env 里。
+
+# ssh 目标：user@<内网IP> 或 mDNS 名（例：you@mac-mini.local）
+# 要求免密：ssh <这里的目标> true 能直接过去
+EC_DEPLOY_TARGET=
+
+# 远端放版本目录的基础目录
+EC_DEPLOY_DIR=~/apps
+
+# 额外保留几个旧版本用于回滚
+EC_DEPLOY_KEEP=3
+
+# 验收时探测的端口；省略 = 8899（远端 EC_PORT 与它不一致时改这里）
+EC_DEPLOY_PORT=8899
+
+# 透传给 deploy-to-lan.sh 的额外参数（一般不用），例：EC_DEPLOY_ARGS=--skip-restart
+EC_DEPLOY_ARGS=
+
+# ssh 选项。默认 BatchMode=yes = 只允许免密，密码框弹出来会直接失败（脚本是给 AI 跑的，
+# 不能交互）。真要密码登录就改成 -o BatchMode=no，但那样 AI 会被卡住。
+EC_DEPLOY_SSH_OPTS='-o BatchMode=yes -o ConnectTimeout=10'

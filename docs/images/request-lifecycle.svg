@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" width="1000" height="620" role="img"
+     aria-label="一个请求的完整生命周期：从 App 拦截器到本地服务、上游服务器与控制台">
+  <title>一个请求的完整生命周期</title>
+  <style>
+    text { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Arial, sans-serif; }
+    .t       { font-size: 25px; font-weight: 700; fill: #0f172a; }
+    .sub     { font-size: 14px; fill: #6b7280; }
+    .lane    { font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .msg     { font-size: 11.5px; font-weight: 600; fill: #1f2937; }
+    .msgsm   { font-size: 11px; fill: #374151; }
+    .num     { font-size: 11px; font-weight: 700; fill: #2b6cb0; }
+    .foot    { font-size: 11px; fill: #854f0b; }
+  </style>
+  <defs>
+    <marker id="lGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+    <marker id="lGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9aa3af"/>
+    </marker>
+    <marker id="lBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="620" fill="#ffffff"/>
+
+  <text class="t" x="36" y="48">一个请求的完整生命周期</text>
+  <text class="sub" x="36" y="76">全程只在应用层走，TLS 始终由 App 自己发起 —— 所以抓到的都是明文</text>
+
+  <!-- 泳道头 -->
+  <rect x="45" y="104" width="150" height="40" rx="9" fill="#e8f1fb" stroke="#2b6cb0"/>
+  <text class="lane" x="120" y="129" fill="#2b6cb0">App 拦截器</text>
+
+  <rect x="305" y="104" width="150" height="40" rx="9" fill="#d6eefe" stroke="#1d4ed8"/>
+  <text class="lane" x="380" y="129" fill="#1d4ed8">本地服务</text>
+
+  <rect x="610" y="104" width="140" height="40" rx="9" fill="#f2f4f7" stroke="#9aa3af"/>
+  <text class="lane" x="680" y="129" fill="#374151">上游服务器</text>
+
+  <rect x="815" y="104" width="140" height="40" rx="9" fill="#fdf3dd" stroke="#f0e0bd"/>
+  <text class="lane" x="885" y="129" fill="#854f0b">控制台</text>
+
+  <!-- 生命线 -->
+  <line x1="120" y1="144" x2="120" y2="540" stroke="#cbd5e1" stroke-dasharray="5 5"/>
+  <line x1="380" y1="144" x2="380" y2="540" stroke="#cbd5e1" stroke-dasharray="5 5"/>
+  <line x1="680" y1="144" x2="680" y2="540" stroke="#cbd5e1" stroke-dasharray="5 5"/>
+  <line x1="885" y1="144" x2="885" y2="540" stroke="#cbd5e1" stroke-dasharray="5 5"/>
+
+  <!-- ① App → 本地服务 -->
+  <line x1="120" y1="178" x2="380" y2="178" stroke="#2b6cb0" stroke-width="2" marker-end="url(#lGreen)"/>
+  <text class="num" x="132" y="170">①</text>
+  <text class="msg" x="132" y="196">缓冲 body · URL 改写 → /__ec/p&lt;path&gt; · 注入 X-EC-*</text>
+
+  <!-- ② 本地服务 自处理 -->
+  <path d="M380 220 h70 v26 h-70" fill="none" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#lBlue)"/>
+  <text class="num" x="392" y="214" fill="#1d4ed8">②</text>
+  <text class="msgsm" x="392" y="240">解析 X-EC-Target · 剥离 X-EC-* · 重写 Host</text>
+
+  <!-- ③ 规则命中 -->
+  <path d="M380 282 h70 v26 h-70" fill="none" stroke="#1d4ed8" stroke-width="1.6" marker-end="url(#lBlue)"/>
+  <text class="num" x="392" y="276" fill="#1d4ed8">③</text>
+  <text class="msgsm" x="392" y="302">命中规则？→ mock（序列 / 延迟 / 状态码），否则 passthrough</text>
+
+  <!-- ④ 本地服务 → 上游 -->
+  <line x1="380" y1="352" x2="680" y2="352" stroke="#2b6cb0" stroke-width="2" marker-end="url(#lGreen)"/>
+  <text class="num" x="392" y="344">④</text>
+  <text class="msg" x="392" y="370">未命中 → 转发上游（绝不重试）</text>
+
+  <!-- ⑤ 上游 → 本地服务 -->
+  <line x1="680" y1="406" x2="380" y2="406" stroke="#9aa3af" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#lGray)"/>
+  <text class="num" x="392" y="398" fill="#6b7280">⑤</text>
+  <text class="msgsm" x="392" y="424">响应边转发边缓冲 · 记录实际字节数（SSE / 大响应流式）</text>
+
+  <!-- ⑥ 本地服务 → 控制台 -->
+  <line x1="380" y1="458" x2="885" y2="458" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#lBlue)"/>
+  <text class="num" x="392" y="450" fill="#2563eb">⑥</text>
+  <text class="msg" x="392" y="476" fill="#2563eb">组装 Record → 按设备归属实时推送</text>
+
+  <!-- ⑦ 本地服务 → App -->
+  <line x1="380" y1="512" x2="120" y2="512" stroke="#9aa3af" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#lGray)"/>
+  <text class="num" x="132" y="504" fill="#6b7280">⑦</text>
+  <text class="msgsm" x="132" y="530">返回明文响应（本地服务不可用时 fail-open，直连真实服务器）</text>
+
+  <!-- 底部说明 -->
+  <rect x="36" y="556" width="928" height="46" rx="12" fill="#fffdf5" stroke="#f0e0bd"/>
+  <text class="foot" x="56" y="584">上游 502 / 504 / 503 属真实业务失败，绝不重试（避免重复提交）；客户端中途断连时销毁未完成的上游请求。</text>
+</svg>
