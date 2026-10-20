@@ -2,7 +2,6 @@
 
 **客户端接口联调工具。不用装证书，改返回值不用等后端，调好的配置能沉淀成模板。**
 
-![EasyCharles 核心价值：不装证书也能看明文](docs/images/easy-charles-value.svg)
 
 ## 能干什么
 
